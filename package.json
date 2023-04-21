@@ -1,0 +1,19 @@
+{
+  "name": "sqlpal",
+  "version": "0.0.1",
+  "description": "Developer friendly advanced SQL dashboard",
+  "license": "AGPL-3.0-only",
+  "scripts": {
+    "docker-build": "docker build -t iasql:latest .",
+    "docker-run": "docker run -e IASQL_ENV=ci -p 9876:9876 -p 5432:5432 --name iasql iasql:latest",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alantech/sqlpal.git"
+  },
+  "keywords": [
+    "sqlpal",
+    "sql",
+    "llm"
+  ]
+}
