@@ -3,7 +3,7 @@ FROM node:lts-bullseye-slim AS base
 
 ## Install OS Packages
 RUN apt update
-RUN apt install --no-install-recommends curl jq gnupg ca-certificates -y \
+RUN apt install --no-install-recommends curl jq gnupg ca-certificates python3-pip -y \
   && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 ## Install Postgres
@@ -80,6 +80,23 @@ RUN yarn install --production
 
 #####################################################################################################################################################
 
+FROM build as sqlpal-stage
+
+WORKDIR /sqlpal-server
+
+# copy the requirements file into the image
+COPY sqlpal-server/requirements.txt ./
+
+# install the dependencies and packages in the requirements file
+RUN pip install -r ./requirements.txt
+
+# copy every content from the local file to the image
+COPY sqlpal-server/run.py ./
+COPY sqlpal-server/config.py ./
+COPY sqlpal-server/app app
+
+#####################################################################################################################################################
+
 # Main stage
 FROM base AS main-stage
 
@@ -105,6 +122,10 @@ WORKDIR /dashboard
 COPY --from=dashboard-stage /dashboard/public ./public
 COPY --from=dashboard-stage /dashboard/.next/standalone ./
 COPY --from=dashboard-stage /dashboard/.next/static ./.next/static
+
+## Copy from sqlpal-stage
+WORKDIR /sqlpal-server
+COPY --from=sqlpal-stage /sqlpal-server/app ./sqlpal-server
 
 ## Default ENVs that can be overwritten
 ARG IASQL_ENV=local
