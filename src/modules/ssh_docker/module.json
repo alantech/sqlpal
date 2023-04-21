@@ -1,4 +1,0 @@
-{
-  "name": "ssh_docker",
-  "dependencies": ["iasql_platform", "ssh_accounts"]
-}

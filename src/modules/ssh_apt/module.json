@@ -1,4 +1,0 @@
-{
-  "name": "ssh_apt",
-  "dependencies": ["iasql_platform", "ssh_accounts"]
-}
