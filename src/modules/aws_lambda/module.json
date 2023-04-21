@@ -1,0 +1,10 @@
+{
+  "name": "aws_lambda",
+  "dependencies": [
+    "iasql_platform",
+    "aws_account",
+    "aws_iam",
+    "aws_security_group",
+    "aws_vpc"
+  ]
+}
