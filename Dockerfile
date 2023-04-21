@@ -3,20 +3,8 @@ FROM node:lts-bullseye-slim AS base
 
 ## Install OS Packages
 RUN apt update
-RUN apt install --no-install-recommends curl jq gnupg ca-certificates python3-pip -y \
-  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-## Install Postgres
-### Update postgresql APT repository [apt.postgresql.org](https://wiki.postgresql.org/wiki/Apt)
-RUN ["bash", "-c", "curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | tee /etc/apt/trusted.gpg.d/apt.postgresql.org.gpg >/dev/null"]
-RUN ["bash", "-c", "echo 'deb http://apt.postgresql.org/pub/repos/apt/ bullseye-pgdg main' > /etc/apt/sources.list.d/postgresql.list"]
-RUN apt update
-RUN apt upgrade -y
-RUN apt install --no-install-recommends postgresql-client-14 postgresql-14 -y \
-  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-# Delete unnecessary cache files
-RUN apt clean
+RUN apt install --no-install-recommends curl jq gnupg ca-certificates python3-pip supervisor  -y \
+  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && mkdir -p /etc/supervisor/conf.d
 
 #####################################################################################################################################################
 
@@ -25,18 +13,7 @@ FROM base AS build
 
 ## Install OS and Postgres Dev Packages
 RUN apt update
-RUN apt install build-essential git make g++ postgresql-server-dev-14 libcurl4-openssl-dev -y
-
-#####################################################################################################################################################
-
-# pgsql-http and pg_cron
-FROM build AS pgsql-stage
-WORKDIR /
-
-RUN git clone --branch v1.5.0 --depth 1 https://github.com/pramsey/pgsql-http
-RUN cd pgsql-http && make && make install
-RUN git clone --branch v1.4.2 --depth 1 https://github.com/citusdata/pg_cron
-RUN cd pg_cron && make && make install
+RUN apt install build-essential git make g++ libcurl4-openssl-dev -y
 
 #####################################################################################################################################################
 
@@ -46,37 +23,16 @@ FROM build AS dashboard-stage
 WORKDIR /dashboard
 
 ## Install stage dependencies
-COPY .yarnrc dashboard/package.json dashboard/yarn.lock ./
+COPY dashboard/package.json dashboard/yarn.lock ./
 RUN yarn install --frozen-lockfile
 
 ## Copy files
-COPY dashboard/.yarnrc dashboard/.eslintrc.json dashboard/next.config.js dashboard/postcss.config.js dashboard/tailwind.config.js dashboard/tsconfig.json dashboard/tslint.json ./
+COPY dashboard/.eslintrc.json dashboard/next.config.js dashboard/postcss.config.js dashboard/tailwind.config.js dashboard/tsconfig.json dashboard/tslint.json ./
 COPY dashboard/public public
 COPY dashboard/src src
 
 ## Build
 RUN yarn build
-
-#####################################################################################################################################################
-
-# Engine
-FROM build AS engine-stage
-
-WORKDIR /engine
-
-## Install stage dependencies
-COPY .yarnrc package.json yarn.lock ./
-RUN yarn install --frozen-lockfile
-
-## Copy files
-COPY ormconfig.js tsconfig.json ./
-COPY src src
-
-## Build
-RUN yarn build
-
-## Prune dev dependencies
-RUN yarn install --production
 
 #####################################################################################################################################################
 
@@ -86,9 +42,6 @@ WORKDIR /sqlpal-server
 
 # copy the requirements file into the image
 COPY sqlpal-server/requirements.txt ./
-
-# install the dependencies and packages in the requirements file
-RUN pip install -r ./requirements.txt
 
 # copy every content from the local file to the image
 COPY sqlpal-server/run.py ./
@@ -100,23 +53,6 @@ COPY sqlpal-server/app app
 # Main stage
 FROM base AS main-stage
 
-## Copy from pgsql-stage
-WORKDIR /
-COPY --from=pgsql-stage /usr/lib/postgresql /usr/lib/postgresql
-COPY --from=pgsql-stage /usr/share/postgresql /usr/share/postgresql
-
-## Copy files
-COPY ./src/scripts/postgresql.conf /etc/postgresql/14/main/postgresql.conf
-COPY ./src/scripts/pg_hba.conf /etc/postgresql/14/main/pg_hba.conf
-COPY docker-entrypoint.sh /engine/docker-entrypoint.sh
-COPY src/scripts /engine/src/scripts
-
-## Copy from engine-stage
-WORKDIR /engine
-COPY --from=engine-stage /engine/node_modules node_modules
-COPY --from=engine-stage /engine/package.json ./
-COPY --from=engine-stage /engine/dist dist
-
 ## Copy from dashboard-stage
 WORKDIR /dashboard
 COPY --from=dashboard-stage /dashboard/public ./public
@@ -125,7 +61,14 @@ COPY --from=dashboard-stage /dashboard/.next/static ./.next/static
 
 ## Copy from sqlpal-stage
 WORKDIR /sqlpal-server
-COPY --from=sqlpal-stage /sqlpal-server/app ./sqlpal-server
+COPY --from=sqlpal-stage /sqlpal-server/requirements.txt ./
+COPY --from=sqlpal-stage /sqlpal-server/app ./app
+COPY --from=sqlpal-stage /sqlpal-server/run.py ./
+COPY --from=sqlpal-stage /sqlpal-server/config.py ./
+
+# install the dependencies and packages in the requirements file
+WORKDIR /
+RUN pip install -r ./sqlpal-server/requirements.txt
 
 ## Default ENVs that can be overwritten
 ARG IASQL_ENV=local
@@ -136,10 +79,11 @@ ARG DB_USER=postgres
 ENV DB_USER=$DB_USER
 ARG DB_PASSWORD=test
 ENV DB_PASSWORD=$DB_PASSWORD
+ARG AUTOCOMPLETE_ENDPOINT=http://localhost:5000
 ENV AUTOCOMPLETE_ENDPOINT=
 
 ## Ports
-EXPOSE 5432
 EXPOSE 9876
 
-ENTRYPOINT ["/engine/docker-entrypoint.sh"]
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+CMD ["/usr/bin/supervisord"]
