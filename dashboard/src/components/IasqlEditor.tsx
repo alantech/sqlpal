@@ -1,9 +1,8 @@
 import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
 import ReactAce, { IAceEditorProps } from 'react-ace/lib/ace';
 
-import dynamic from 'next/dynamic';
 import debounce from 'lodash/debounce';
-
+import dynamic from 'next/dynamic';
 
 import { useQueryParams } from '@/hooks/useQueryParams';
 
@@ -39,6 +38,7 @@ export default function IasqlEditor() {
     editorTabs,
     editorSelectedTab,
     forceRun,
+    connString,
   } = useAppContext();
   const editorRef = useRef(null as null | ReactAce);
   const prevTabsLenRef = useRef(null as null | number);
@@ -52,9 +52,11 @@ export default function IasqlEditor() {
     return initialQuery;
   }, []);
 
-  const handleEditorContentUpdate =  useCallback(
-    (content: string, event:any) => {
-      editorRef?.current?.editor.commands.on('afterExec', eventData => {handleAfterExec(eventData); });
+  const handleEditorContentUpdate = useCallback(
+    (content: string, event: any) => {
+      editorRef?.current?.editor.commands.on('afterExec', eventData => {
+        handleAfterExec(eventData);
+      });
       dispatch({ action: ActionType.EditContent, data: { content } });
     },
     [dispatch],
@@ -134,22 +136,21 @@ export default function IasqlEditor() {
   }, []);
 
   const completer = {
-    getCompletions: async function(editor: any, session: any, pos: any, prefix: any, callback: any) {
-      console.log("in get completions");
+    getCompletions: async function (editor: any, session: any, pos: any, prefix: any, callback: any) {
+      console.log('in get completions');
       console.log(suggestions);
       if (suggestions) {
         callback(null, suggestions);
-      }
-      else callback(null, []);
+      } else callback(null, []);
     },
-    insertSnippet: function(editor:any, data:any) {
+    insertSnippet: function (editor: any, data: any) {
       /*editor.forEachSelection(function() {
           editor.insert(data.caption)
       })*/
-      console.log("in insert match");
+      console.log('in insert match');
       console.log(data);
-    }
-  }
+    },
+  };
   if (editorRef.current?.editor.completers) editorRef.current.editor.completers = [completer];
 
   useEffect(() => {
@@ -173,63 +174,62 @@ export default function IasqlEditor() {
     }
   }, [editorTabs]);
 
-  const handleAfterExec = debounce((eventData:any) => {
-  
-        if (eventData.command.name === 'insertstring') {
-      
-        console.log('User typed a character: ' + eventData.args);
-        const content = editorRef?.current?.editor.session.getValue() ?? '';
-        const pos = editorRef?.current?.editor.getCursorPosition();
+  const handleAfterExec = debounce((eventData: any) => {
+    if (eventData.command.name === 'insertstring') {
+      console.log('User typed a character: ' + eventData.args);
+      const content = editorRef?.current?.editor.session.getValue() ?? '';
+      const pos = editorRef?.current?.editor.getCursorPosition();
 
-        const line = editorRef?.current?.editor.session.getLine(pos!.row) ?? '';
+      const line = editorRef?.current?.editor.session.getLine(pos!.row) ?? '';
 
-        // retrieve also the 2 previous lines
-        const linesToRetrieve = 3;
-        const lines = content.split('\n');
-        let selectedLines:any[] = [];
-        for (let i = 0; i < lines.length; i++) {
-          if (lines[i].includes(line)) {
-            const startIndex = Math.max(0, i - linesToRetrieve + 1);
-            const endIndex = i + 1;
-            selectedLines = lines.slice(startIndex, endIndex);
-            break;
-          }
+      // retrieve also the 2 previous lines
+      const linesToRetrieve = 3;
+      const lines = content.split('\n');
+      let selectedLines: any[] = [];
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes(line)) {
+          const startIndex = Math.max(0, i - linesToRetrieve + 1);
+          const endIndex = i + 1;
+          selectedLines = lines.slice(startIndex, endIndex);
+          break;
         }
-        const finalText = (selectedLines.length == 0) ? line:selectedLines.join('\n');
-        if (finalText && finalText.length>3) {
-          // having the final text, call the sqlpal autocomplete to get a completion
-          const requestOptions = {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ conn_str: sessionStorage.getItem('connString'), query: finalText }),
-            credentials: 'include' as RequestCredentials
-          };
-          const endpoint = process.env.AUTOCOMPLETE_ENDPOINT ?? 'http://localhost:5000/autocomplete';
-          //const endpoint = "http://192.168.2.38:5000/autocomplete"
-          fetch(endpoint, requestOptions)
+      }
+      const finalText = selectedLines.length == 0 ? line : selectedLines.join('\n');
+      if (finalText && finalText.length > 3) {
+        // having the final text, call the sqlpal autocomplete to get a completion
+        const requestOptions = {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conn_str: connString, query: finalText }),
+          credentials: 'include' as RequestCredentials,
+        };
+        const endpoint = process.env.AUTOCOMPLETE_ENDPOINT ?? 'http://localhost:5000/autocomplete';
+        //const endpoint = "http://192.168.2.38:5000/autocomplete"
+        fetch(endpoint, requestOptions)
           .then(response => response.json())
           .then(response => {
             if (response['output_text']) {
               // check if response is a valid sql query
-              const sg = [{value: '\n'+response['output_text'], meta: 'custom', score: 1000}];
+              const sg = [{ value: '\n' + response['output_text'], meta: 'custom', score: 1000 }];
               setSuggestions(sg as []);
             }
           })
-          .catch(error => console.error(error));          
-        }
+          .catch(error => console.error(error));
+      }
     }
-}, 300);
+  }, 300);
 
-useEffect(() => {
-  if (suggestions.length > 0) {
-    editorRef?.current?.editor.execCommand('startAutocomplete');
-  }
-}, [suggestions]);
+  useEffect(() => {
+    if (suggestions.length > 0) {
+      editorRef?.current?.editor.execCommand('startAutocomplete');
+    }
+  }, [suggestions]);
 
   return (
     <VBox customClasses='mb-3'>
       <HBox alignment={align.between}>
-        {!Object.keys(functions ?? {}).length ? <Spinner /> : <QuerySidebar />}
+        {/* {!Object.keys(functions ?? {}).length ? <Spinner /> : <QuerySidebar />} */}
+        <QuerySidebar />
         <VBox id='tabs-and-editor' customClasses='w-full' height='h-50vh'>
           <Tab
             tabs={editorTabs}

@@ -19,7 +19,7 @@ export default function Main() {
   const { config } = useAppConfigContext();
   const {
     dispatch,
-    databases,
+    connString,
     error: appError,
     shouldShowDisconnect,
     shouldShowConnect,
@@ -35,7 +35,7 @@ export default function Main() {
       innerWidth = window.innerWidth;
       showSmallViewport(innerWidth < MIN_WIDTH);
     }
-    if (config && token && !latestVersion) {
+    if (token && !latestVersion) {
       // Dispatch initial load
       dispatch({ token: token ?? '', action: ActionType.InitialLoad });
 
@@ -53,7 +53,7 @@ export default function Main() {
       }
       dispatch({ action: ActionType.SelectAppTheme, data: { theme: localStorage.getItem('theme') } });
     }
-  }, [dispatch, token, latestVersion, config]);
+  }, [dispatch, token, latestVersion]);
 
   return (
     <>
@@ -68,21 +68,10 @@ export default function Main() {
       ) : (
         <>
           <main>
-            {!databases?.length ? (
+            {!connString ? (
               <div className='max-w-full mx-auto pt-4 sm:px-4 lg:px-6'>
                 <EmptyState>
-                  <p>No connected accounts</p>
-                  <p>
-                    Get started by connecting an account using our{' '}
-                    <a
-                      className='text-primary'
-                      href='https://iasql.com/docs/aws'
-                      target='_blank'
-                      rel='noreferrer'
-                    >
-                      guide
-                    </a>
-                  </p>
+                  <p>No connected databases</p>
                   <HBox customStyles='mt-2'>
                     <Button
                       look='iasql'
@@ -93,7 +82,7 @@ export default function Main() {
                       <HBox alignment={align.around}>
                         <DatabaseIcon className='w-5 h-5' aria-hidden='true' />
                         <PlusSmIcon className='w-5 h-5 mr-1 ' aria-hidden='true' />
-                        Connect Account
+                        Connect database
                       </HBox>
                     </Button>
                   </HBox>
@@ -101,9 +90,9 @@ export default function Main() {
               </div>
             ) : (
               <>
-                <div className='max-w-full mx-auto pt-4 sm:px-4 lg:px-6'>
+                {/* <div className='max-w-full mx-auto pt-4 sm:px-4 lg:px-6'>
                   <DatabaseManagement />
-                </div>
+                </div> */}
                 <div className='max-w-full mx-auto py-2 sm:px-4 lg:px-6'>
                   <Query />
                 </div>

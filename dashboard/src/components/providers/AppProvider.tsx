@@ -148,7 +148,7 @@ function discoverData(connString: string) {
   };
   const endpoint = process.env.AUTOCOMPLETE_ENDPOINT ?? 'http://localhost:5000/discover';
   //const endpoint = "http://192.168.2.38:5000/discover"
-  
+
   fetch(endpoint, requestOptions)
     .then(response => response.json())
     .catch(error => {
@@ -221,7 +221,7 @@ const reducer = (state: AppState, payload: Payload): AppState => {
       }
 
       // add the query to the index
-      if (queryRes && queryRes.length>0) {
+      if (queryRes && queryRes.length > 0) {
         const requestOptions = {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -229,13 +229,13 @@ const reducer = (state: AppState, payload: Payload): AppState => {
           credentials: 'include' as RequestCredentials,
         };
         const endpoint = process.env.AUTOCOMPLETE_ENDPOINT ?? 'http://localhost:5000/add';
-        
+
         fetch(endpoint, requestOptions)
           .then(response => response.json())
           .catch(error => {
             console.error('Error:', error);
           });
-        }
+      }
 
       return { ...state, editorTabs: tabsCopy, forceRun: false };
     }
@@ -386,15 +386,7 @@ SELECT * FROM iasql_uninstall('${uninstallModule}');
     }
     case ActionType.SetConnStr: {
       const { connString } = payload.data;
-      sessionStorage.setItem('connString', connString);
-
-      // fetch data from database
-      discoverData(connString);
       return { ...state, connString };
-    }
-    case ActionType.DiscoverSchema: {
-      if (state.connString)
-        discoverData(state.connString);
     }
   }
   return state;
@@ -408,17 +400,29 @@ const middlewareReducer = async (
   const { token } = payload;
   const { backendUrl } = config?.engine;
   switch (payload.action) {
+    case ActionType.SetConnStr: {
+      const { connString } = payload.data;
+      try {
+        discoverData(connString);
+        dispatch({ ...payload, data: { connString } });
+        break;
+      } catch (e: any) {
+        const error = e.message ? e.message : `Unexpected error setting connection string`;
+        dispatch({ ...payload, data: { error } });
+        break;
+      }
+    }
     case ActionType.InitialLoad: {
       try {
-        const initialDatabases = await DbActions.list(token ?? '', backendUrl, config);
-        const oldestVer = await DbActions.getOldestVersion(token ?? '', backendUrl);
-        const latestVer = await DbActions.getLatestVersion(token ?? '', backendUrl);
+        // const initialDatabases = await DbActions.list(token ?? '', backendUrl, config);
+        // const oldestVer = await DbActions.getOldestVersion(token ?? '', backendUrl);
+        // const latestVer = await DbActions.getLatestVersion(token ?? '', backendUrl);
         dispatch({
           ...payload,
           data: {
-            initialDatabases,
-            oldestVersion: oldestVer.split('-')[0],
-            latestVersion: latestVer.split('-')[0],
+            initialDatabases: [],
+            oldestVersion: '0', //oldestVer.split('-')[0],
+            latestVersion: '1', //latestVer.split('-')[0],
           },
         });
         break;
@@ -556,12 +560,6 @@ const middlewareReducer = async (
             runningDb?.alias,
             initializingQueries,
           );
-
-          // rediscover the schema for autocompletion
-          dispatch({
-            action: ActionType.DiscoverSchema,
-          })
-      
         }
       } catch (e: any) {
         if (e.message) {
@@ -594,12 +592,7 @@ const middlewareReducer = async (
       }
       const { dbAlias: autoCompleteDbAlias } = payload.data;
       try {
-        const autoCompleteRes = await DbActions.run(
-          token,
-          backendUrl,
-          autoCompleteDbAlias,
-          initializingQueries,
-        );
+        const autoCompleteRes = await DbActions.run(token, backendUrl, autoCompleteDbAlias, '');
         dispatch({ ...payload, data: { autoCompleteRes } });
       } catch (e: any) {
         const error = e.message ? e.message : `Unexpected error`;
