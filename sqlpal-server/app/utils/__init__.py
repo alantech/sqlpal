@@ -3,21 +3,19 @@ import logging
 import os
 import re
 from flask import current_app, jsonify, make_response, session
-from langchain.tools.sql_database.tool import QuerySQLDataBaseTool
 from langchain.chains.question_answering import load_qa_chain
 from langchain.chains.chat_vector_db.prompts import QA_PROMPT
 from langchain.chat_models import ChatOpenAI
-from langchain import FAISS, SQLDatabase
+from langchain import SQLDatabase
 from sqlalchemy import Column, Integer, LargeBinary, String
 from sqlalchemy.ext.declarative import declarative_base
-from langchain.embeddings.openai import OpenAIEmbeddings
 from sqlalchemy.orm import Session
 
 import uuid
 
 logger = logging.getLogger(__name__)
 
-CUSTOM_TEMPLATE = """
+CUSTOM_TEMPLATE = os.environ.get('AUTOCOMPLETE_PROMPT', """
 You are an smart SQL assistant, capable of autocompleting SQL queries. You should autocomplete any queries with the specific guidelines:
 - write a syntactically correct query using {dialect}
 - unless the user specifies in his question a specific number of examples he wishes to obtain, do not limit the results. You can order the results by a relevant column to return the most interesting examples in the database.
@@ -44,12 +42,11 @@ Please continue the query with the following input:
 >>>
 
 Output:
-"""
+""")
 
 def autocomplete_query(query, docsearch):
-    llm = ChatOpenAI(temperature=0.9, model_name='gpt-3.5-turbo')
-    
-    chain = load_qa_chain(llm, chain_type="stuff", prompt=QA_PROMPT)    
+    llm = ChatOpenAI(temperature=os.environ.get('OPENAI_TEMPERATURE', 0.9), model_name='gpt-3.5-turbo', n=os.environ.get('OPENAI_NUM_ANSWERS', 1))    
+    chain = load_qa_chain(llm, chain_type="stuff", prompt=QA_PROMPT)    # for the autocomplete case, stuff is the only possible value
     docs = docsearch.similarity_search(query)    
     query_str = CUSTOM_TEMPLATE.format(dialect="Postgres", input=query)
 
@@ -96,49 +93,4 @@ def connect_to_db(request):
   else:
     return None, make_response(jsonify({'error': 'No connection string provided'}), 400)  
 
-def read_index(db):
-  filename = "index_{}".format(session['conn_str'])
-
-  content = None
-  if os.environ.get('USE_DATABASE'):
-    try:
-      sess = Session(bind=db._engine)
-      row = sess.query(FaissContent).filter_by(name=session['conn_str']).first()
-      if row:
-         content = row.content
-    except Exception as e:
-       logger.exception(e)
-
-    if content is not None:
-      # write to local file
-      filepath = os.path.join(os.environ.get('INDEX_FOLDER'), filename)
-      with open(filepath, 'wb') as f:
-        f.write(content)
-
-  # now read as usual from a file
-  try:
-    embeddings = OpenAIEmbeddings()  
-    docsearch = FAISS.load_local(os.environ.get('INDEX_FOLDER'), embeddings, filename)
-  except:
-    docsearch = None
-
-  return docsearch
-
-def write_index(db, docsearch):
-  filename = "index_{}".format(session['conn_str'])
-  filepath = os.path.join(os.environ.get('INDEX_FOLDER'), filename+'.pkl')
-  docsearch.save_local(os.environ.get('INDEX_FOLDER'), filename)
-  if os.environ.get('USE_DATABASE'):
-    content = None
-    try:
-      with open(filepath, 'rb') as f:
-        content = f.read()
-    except Exception as e:
-        logger.exception(e)
-
-    if content is not None:
-      sess = Session(bind=db._engine)
-      new_file = FaissContent(name=session['conn_str'], content=content)
-      sess.add(new_file)
-      sess.commit()
 
