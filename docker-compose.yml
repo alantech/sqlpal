@@ -1,0 +1,24 @@
+version: '1.0'
+services:
+  sqlpal:
+    image: sqlpal:latest
+    environment:
+      IASQL_ENV: ci
+    env_file:
+      - .env
+    ports:
+      - "9876:9876"
+      - "5000:5000"
+    tmpfs:
+      - /tmp/indexes
+    container_name: sqlpal
+  db:
+    container_name: test_db
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: sqlpass
+      POSTGRES_DB: sqlpal
+    volumes:
+      - ./sqlpal-server/fixtures/test_schema.sql:/docker-entrypoint-initdb.d/init.sql    

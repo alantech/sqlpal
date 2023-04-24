@@ -9,7 +9,7 @@ import promptlayer
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.declarative import declarative_base
 
-from .utils import FaissContent, autocomplete_query, connect_to_db, read_index
+from .utils import FaissContent, autocomplete_query, connect_to_db, read_index, write_index
 import logging
 
 logger = logging.getLogger(__name__)
@@ -46,24 +46,8 @@ def discover():
       docsearch = FAISS.from_texts(texts, embeddings)
     else:
       docsearch.add_texts(texts)
-    
-    filename = f"index_{session.sid}"
-    filepath = os.path.join(os.environ.get('INDEX_FOLDER'), filename+'.pkl')
-    docsearch.save_local(os.environ.get('INDEX_FOLDER'), filename)
-    if os.environ.get('USE_DATABASE'):
 
-      try:
-        with open(filepath, 'rb') as f:
-          content = f.read()
-      except Exception as e:
-         logger.exception(e)
-
-      if content is not None:
-        sess = Session(bind=db._engine)
-        new_file = FaissContent(session_id=session.sid, content=content)
-        sess.add(new_file)
-        sess.commit()
-
+    write_index(db, docsearch)    
     response = jsonify({"status":'OK'})
     return response           
 
