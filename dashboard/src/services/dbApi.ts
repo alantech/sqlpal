@@ -173,8 +173,8 @@ export async function list(token: string, backendUrl: string, config: ConfigInte
   return dbs;
 }
 
-export async function run(token: string, backendUrl: string, dbAlias: string, sql: string) {
-  const resp = await post(token, backendUrl, '', { dbAlias, sql });
+export async function run(token: string, backendUrl: string, dbAlias: string, sql: string, connString?: string) {
+  const resp = await post(token, backendUrl, '', { sql, connString });
   return resp.json();
 }
 

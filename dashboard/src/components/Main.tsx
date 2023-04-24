@@ -90,9 +90,9 @@ export default function Main() {
               </div>
             ) : (
               <>
-                {/* <div className='max-w-full mx-auto pt-4 sm:px-4 lg:px-6'>
+                <div className='max-w-full mx-auto pt-4 sm:px-4 lg:px-6'>
                   <DatabaseManagement />
-                </div> */}
+                </div>
                 <div className='max-w-full mx-auto py-2 sm:px-4 lg:px-6'>
                   <Query />
                 </div>

@@ -534,8 +534,8 @@ const middlewareReducer = async (
         dispatch({ ...payload, data: { error: 'No auth token defined.' } });
         break;
       }
-      const { content, db: runningDb, tabIdx } = payload.data;
-      if (runningDb.isUnsupported) {
+      const { content, db: runningDb, tabIdx, connString } = payload.data;
+      if (runningDb?.isUnsupported) {
         break;
       }
       let queryRes: any = 'Invalid or empty response';
@@ -546,7 +546,8 @@ const middlewareReducer = async (
       let queryError: string = 'Unhandled error in SQL execution';
       dispatch({ action: ActionType.RunningSql, data: { isRunning: true, tabIdx } });
       try {
-        if (token && content) queryRes = await DbActions.run(token, backendUrl, runningDb?.alias, content);
+        if (token && content)
+          queryRes = await DbActions.run(token, backendUrl, runningDb?.alias, content, connString);
         const compFn = (r: any, stmt: string) =>
           r.statement && typeof r.statement === 'string' && r.statement.toLowerCase().indexOf(stmt) !== -1;
         for (const r of queryRes) {
@@ -559,6 +560,7 @@ const middlewareReducer = async (
             backendUrl,
             runningDb?.alias,
             initializingQueries,
+            connString,
           );
         }
       } catch (e: any) {
