@@ -67,7 +67,14 @@ export default function Connect({ closable }: { closable: boolean }) {
         <form className='mb-10'>
           <VBox>
             <Label htmlFor='conn-str'>Connection String</Label>
-            <Input required type='text' name='conn-str' value={connStr} setValue={SetConnStr} />
+            <Input
+              required
+              type='text'
+              name='conn-str'
+              value={connStr}
+              setValue={SetConnStr}
+              placeholder='postgresql://postgres:sqlpass@<your_host_ip>/sqlpal'
+            />
           </VBox>
         </form>
       </Step>
