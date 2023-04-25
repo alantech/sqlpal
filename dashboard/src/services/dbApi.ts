@@ -52,7 +52,7 @@ export async function discoverData(backendUrl: string, connString: string) {
   return resp.json();
 }
 
-export async function addStatement(backendUrl: string, query: string) {
-  const resp = await post(backendUrl, 'add', { query });
+export async function addStatement(backendUrl: string, connString: string, query: string) {
+  const resp = await post(backendUrl, 'add', { query, conn_str: connString });
   return resp.json();
 }
