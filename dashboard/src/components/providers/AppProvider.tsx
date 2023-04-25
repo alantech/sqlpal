@@ -1,16 +1,9 @@
 import React, { useCallback, useContext, useReducer } from 'react';
 
-import * as semver from 'semver';
-import { uniqueNamesGenerator, adjectives, colors, animals } from 'unique-names-generator';
-
 import { ConfigInterface } from '@/config/config';
 import * as DbActions from '@/services/dbApi';
 
 import { useAppConfigContext } from './ConfigProvider';
-
-const nameGenConfig = {
-  dictionaries: [adjectives, colors, animals],
-};
 
 const AppContext = React.createContext({} as AppStore);
 
@@ -35,6 +28,7 @@ export enum ActionType {
   SelectAppTheme = 'SelectAppTheme',
   EditorCloseTab = 'EditorCloseTab',
   SelectTable = 'SelectTable',
+  GetSuggestions = 'GetSuggestions',
 }
 
 interface Payload {
@@ -82,6 +76,7 @@ interface AppState {
     queryRes?: any | null;
     closable?: boolean;
     isRunning?: boolean;
+    suggestions: { value: string; meta: string; score: number }[];
   }[];
   forceRun: boolean;
 }
@@ -101,23 +96,6 @@ const gettingStarted = `-- Welcome to SQLPal! Steps to get started:
 
 -- Happy coding :)
 `;
-
-function discoverData(connString: string) {
-  const requestOptions = {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ conn_str: connString }),
-    credentials: 'include' as RequestCredentials,
-  };
-  const endpoint = process.env.AUTOCOMPLETE_ENDPOINT ?? 'http://localhost:5000/discover';
-  //const endpoint = "http://192.168.2.38:5000/discover"
-
-  fetch(endpoint, requestOptions)
-    .then(response => response.json())
-    .catch(error => {
-      console.error('Error:', error);
-    });
-}
 
 const reducer = (state: AppState, payload: Payload): AppState => {
   const { error } = payload?.data ?? { error: null };
@@ -159,24 +137,6 @@ const reducer = (state: AppState, payload: Payload): AppState => {
           forceRun: false,
         };
       }
-
-      // add the query to the index
-      if (queryRes && queryRes.length > 0) {
-        const requestOptions = {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: queryRes[0].statement }),
-          credentials: 'include' as RequestCredentials,
-        };
-        const endpoint = process.env.AUTOCOMPLETE_ENDPOINT ?? 'http://localhost:5000/add';
-
-        fetch(endpoint, requestOptions)
-          .then(response => response.json())
-          .catch(error => {
-            console.error('Error:', error);
-          });
-      }
-
       return { ...state, editorTabs: tabsCopy, forceRun: false };
     }
 
@@ -198,7 +158,12 @@ const reducer = (state: AppState, payload: Payload): AppState => {
     case ActionType.EditorNewTab: {
       const tabsCopy = [...state.editorTabs];
       const newTab = tabsCopy.pop();
-      tabsCopy.push({ title: `Query-${state.editorTabsCreated}`, content: '', closable: true });
+      tabsCopy.push({
+        title: `Query-${state.editorTabsCreated}`,
+        content: '',
+        closable: true,
+        suggestions: [],
+      });
       if (newTab) tabsCopy.push(newTab);
       return { ...state, editorTabs: tabsCopy, editorTabsCreated: state.editorTabsCreated + 1 };
     }
@@ -221,7 +186,12 @@ const reducer = (state: AppState, payload: Payload): AppState => {
       const tabsCopy = [...state.editorTabs];
       const newTab = tabsCopy.pop();
       const tabContent = `SELECT * FROM ${tableName};`;
-      tabsCopy.push({ title: `Query-${state.editorTabsCreated}`, content: tabContent, closable: true });
+      tabsCopy.push({
+        title: `Query-${state.editorTabsCreated}`,
+        content: tabContent,
+        closable: true,
+        suggestions: [],
+      });
       if (newTab) tabsCopy.push(newTab);
       return {
         ...state,
@@ -234,6 +204,12 @@ const reducer = (state: AppState, payload: Payload): AppState => {
       const { connString } = payload.data;
       return { ...state, connString };
     }
+    case ActionType.GetSuggestions: {
+      const { suggestions, tabIdx } = payload.data;
+      const tabsCopy = [...state.editorTabs];
+      tabsCopy[tabIdx].suggestions = suggestions;
+      return { ...state, editorTabs: tabsCopy };
+    }
   }
   return state;
 };
@@ -244,19 +220,23 @@ const middlewareReducer = async (
   payload: Payload,
 ) => {
   const { token } = payload;
-  const { backendUrl } = config?.engine;
+  const { backendUrl, palServerUrl } = config?.engine;
   switch (payload.action) {
     case ActionType.SetConnStr: {
       const { connString } = payload.data;
       try {
-        discoverData(connString);
         dispatch({ ...payload, data: { connString } });
-        break;
       } catch (e: any) {
         const error = e.message ? e.message : `Unexpected error setting connection string`;
         dispatch({ ...payload, data: { error } });
         break;
       }
+      try {
+        await DbActions.discoverData(palServerUrl, connString);
+      } catch (e) {
+        console.log(`/discover failed with error: ${e}.`);
+      }
+      break;
     }
     case ActionType.InitialLoad: {
       try {
@@ -297,6 +277,14 @@ const middlewareReducer = async (
       }
       dispatch({ action: ActionType.RunningSql, data: { isRunning: false, tabIdx } });
       dispatch({ ...payload, data: { queryRes, databases: [], tabIdx } });
+      // add the query to the index
+      if (queryRes && queryRes.length > 0) {
+        try {
+          await DbActions.addStatement(palServerUrl, queryRes[0].statement ?? '');
+        } catch (e) {
+          console.error(e);
+        }
+      }
       break;
     }
     case ActionType.EditorSelectTab: {
@@ -313,6 +301,27 @@ const middlewareReducer = async (
           },
         });
       }
+      break;
+    }
+    case ActionType.GetSuggestions: {
+      const { connString, query, tabIdx } = payload.data;
+      if (!connString) break;
+      let suggestions: any[] = [];
+      try {
+        console.log(`callig get suggestions `);
+        const suggestionsRes = await DbActions.getSuggestions(palServerUrl, connString, query);
+        console.log(`suggestions response? `);
+        if (suggestionsRes['output_text']) {
+          suggestions = [{ value: suggestionsRes['output_text'], meta: 'custom', score: 1000 }];
+        }
+      } catch (e: any) {
+        // todo: handle error
+        console.log('catching this error');
+        console.error(e);
+        suggestions = [];
+      }
+      dispatch({ ...payload, data: { suggestions, tabIdx } });
+      break;
     }
     default: {
       dispatch(payload);
@@ -339,7 +348,7 @@ const AppProvider = ({ children }: { children: any }) => {
     editorSelectedTab: 0,
     editorTabsCreated: 1,
     editorTabs: [
-      { title: 'Getting started', content: gettingStarted, closable: true },
+      { title: 'Getting started', content: gettingStarted, closable: true, suggestions: [] },
       {
         title: '+',
         content: '',
@@ -350,6 +359,7 @@ const AppProvider = ({ children }: { children: any }) => {
             action: ActionType.EditorNewTab,
           });
         },
+        suggestions: [],
       },
     ],
     forceRun: false,
