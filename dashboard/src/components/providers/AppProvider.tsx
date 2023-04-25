@@ -29,6 +29,7 @@ export enum ActionType {
   EditorCloseTab = 'EditorCloseTab',
   SelectTable = 'SelectTable',
   GetSuggestions = 'GetSuggestions',
+  ResetSuggestion = 'ResetSuggestion',
 }
 
 interface Payload {
@@ -139,7 +140,6 @@ const reducer = (state: AppState, payload: Payload): AppState => {
       }
       return { ...state, editorTabs: tabsCopy, forceRun: false };
     }
-
     case ActionType.ShowDisconnect: {
       const { show } = payload.data;
       return { ...state, shouldShowDisconnect: show };
@@ -208,6 +208,12 @@ const reducer = (state: AppState, payload: Payload): AppState => {
       const { suggestions, tabIdx } = payload.data;
       const tabsCopy = [...state.editorTabs];
       tabsCopy[tabIdx].suggestions = suggestions;
+      return { ...state, editorTabs: tabsCopy };
+    }
+    case ActionType.ResetSuggestion: {
+      const { tabIdx } = payload.data;
+      const tabsCopy = [...state.editorTabs];
+      tabsCopy[tabIdx].suggestions = [];
       return { ...state, editorTabs: tabsCopy };
     }
   }
@@ -280,7 +286,7 @@ const middlewareReducer = async (
       // add the query to the index
       if (queryRes && queryRes.length > 0) {
         try {
-          await DbActions.addStatement(palServerUrl, queryRes[0].statement ?? '');
+          await DbActions.addStatement(palServerUrl, connString, queryRes[0].statement ?? '');
         } catch (e) {
           console.error(e);
         }
