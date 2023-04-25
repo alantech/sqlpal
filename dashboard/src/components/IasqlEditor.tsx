@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useRef } from 'react';
 import ReactAce, { IAceEditorProps } from 'react-ace/lib/ace';
 
 import debounce from 'lodash/debounce';
@@ -34,7 +34,6 @@ export default function IasqlEditor() {
   const editorRef = useRef(null as null | ReactAce);
   const prevTabsLenRef = useRef(null as null | number);
   const queryParams = useQueryParams();
-  const [suggestions, setSuggestions] = useState([] as { value: string; meta: string; score: number }[]);
 
   // Handlers
   const getInitialQuery = useCallback((sql: string | null) => {
@@ -185,62 +184,50 @@ export default function IasqlEditor() {
       }
       const finalText = selectedLines.length == 0 ? line : selectedLines.join('\n');
       if (finalText && finalText.length > 3) {
-        // todo: move this dto db api
-        // having the final text, call the sqlpal autocomplete to get a completion
-        const requestOptions = {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ conn_str: connString, query: finalText }),
-          credentials: 'include' as RequestCredentials,
-        };
-        const endpoint = process.env.AUTOCOMPLETE_ENDPOINT ?? 'http://localhost:5000/autocomplete';
-        fetch(endpoint, requestOptions)
-          .then(response => response.json())
-          .then(response => {
-            if (response['output_text']) {
-              // check if response is a valid sql query
-              const sg = [{ value: response['output_text'], meta: 'custom', score: 1000 }];
-              setSuggestions(sg);
-            }
-          })
-          .catch(error => console.error(error));
+        dispatch({
+          action: ActionType.GetSuggestions,
+          data: { query: finalText, connString, tabIdx: editorSelectedTab },
+        });
       }
     }
   }, 500);
 
   useEffect(() => {
-    // keep loggers here while we debug more later
-    let editor = editorRef?.current?.editor;
-    let suggestionNode = editor?.suggestionNode;
-    let shouldShow = !!suggestions.length;
-    console.log(`new suggestions? ${shouldShow}`);
-    let coord;
-    if (editor) {
-      console.log(editor.renderer.getScrollTop());
-      const pos = editor.getCursorPosition();
-      console.log(`pos: ${pos.row}, ${pos.column}`);
-      coord = editor.renderer.textToScreenCoordinates(pos.row, pos.column);
-      console.log(`coord: ${coord.pageX}, ${coord.pageY}`);
-    }
-    if (editor && shouldShow) {
-      if (editor.suggestionNode) {
-        editor.renderer.scroller.removeChild(editor.suggestionNode);
-        editor.suggestionNode = null;
+    if (editorTabs[editorSelectedTab]?.suggestions?.length) {
+      const suggestions = editorTabs[editorSelectedTab].suggestions;
+      // keep loggers here while we debug more later
+      let editor = editorRef?.current?.editor;
+      let suggestionNode = editor?.suggestionNode;
+      let shouldShow = !!suggestions.length;
+      console.log(`new suggestions? ${shouldShow}`);
+      let coord;
+      if (editor) {
+        console.log(editor.renderer.getScrollTop());
+        const pos = editor.getCursorPosition();
+        console.log(`pos: ${pos.row}, ${pos.column}`);
+        coord = editor.renderer.textToScreenCoordinates(pos.row, pos.column);
+        console.log(`coord: ${coord.pageX}, ${coord.pageY}`);
       }
-      const suggestionValue =
-        suggestions.sort((a, b) => (a.score > b.score ? 1 : a.score < b.score ? -1 : 0))?.[0]?.value ?? '';
-      suggestionNode = editor.suggestionNode = document.createElement('div');
-      suggestionNode.textContent = suggestionValue;
-      suggestionNode.className = 'ace_suggestionMessage';
-      suggestionNode.style.padding = '0 9px';
-      suggestionNode.style.position = 'fixed';
-      suggestionNode.style.top = `${coord?.pageY ?? 0}px`;
-      suggestionNode.style.left = `${(coord?.pageX ?? 0) + 10}px`;
-      suggestionNode.style.zIndex = 9;
-      suggestionNode.style.opacity = 0.5;
-      editor?.renderer?.scroller?.appendChild(suggestionNode);
+      if (editor && shouldShow) {
+        if (editor.suggestionNode) {
+          editor.renderer.scroller.removeChild(editor.suggestionNode);
+          editor.suggestionNode = null;
+        }
+        const suggestionValue =
+          suggestions.sort((a, b) => (a.score > b.score ? 1 : a.score < b.score ? -1 : 0))?.[0]?.value ?? '';
+        suggestionNode = editor.suggestionNode = document.createElement('div');
+        suggestionNode.textContent = suggestionValue;
+        suggestionNode.className = 'ace_suggestionMessage';
+        suggestionNode.style.padding = '0 9px';
+        suggestionNode.style.position = 'fixed';
+        suggestionNode.style.top = `${coord?.pageY ?? 0}px`;
+        suggestionNode.style.left = `${(coord?.pageX ?? 0) + 10}px`;
+        suggestionNode.style.zIndex = 9;
+        suggestionNode.style.opacity = 0.5;
+        editor?.renderer?.scroller?.appendChild(suggestionNode);
+      }
     }
-  }, [suggestions]);
+  }, [editorTabs]);
 
   useEffect(() => {
     // lets add a listener for the tab key
