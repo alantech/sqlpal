@@ -41,3 +41,18 @@ export async function run(backendUrl: string, connString: string, sql: string) {
   const resp = await post(backendUrl, '', { sql, connString });
   return resp.json();
 }
+
+export async function getSuggestions(backendUrl: string, connString: string, sql: string) {
+  const resp = await post(backendUrl, 'autocomplete', { query: sql, conn_str: connString });
+  return resp.json();
+}
+
+export async function discoverData(backendUrl: string, connString: string) {
+  const resp = await post(backendUrl, 'discover', { conn_str: connString });
+  return resp.json();
+}
+
+export async function addStatement(backendUrl: string, query: string) {
+  const resp = await post(backendUrl, 'add', { query });
+  return resp.json();
+}
