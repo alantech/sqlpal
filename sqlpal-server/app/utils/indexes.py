@@ -22,7 +22,7 @@ class IndexContent(Base):
 def select_index():
     if os.environ.get('INDEX_ENGINE') == 'FAISS':
         index_engine = FaissEngine()
-    elif os.environ.get('INDEX_ENGINE') == 'CHROMA':
+    elif os.environ.get('INDEX_ENGINE') == 'chroma':
         index_engine = ChromaEngine()
     else:
         index_engine = FaissEngine()

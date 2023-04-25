@@ -5,9 +5,10 @@ from dotenv import load_dotenv
 import os
 import openai
 from sqlalchemy.orm import Session
+from .utils.autocomplete import autocomplete_query
 from .utils.indexes import FaissEngine, select_index
 
-from .utils import autocomplete_query, connect_to_db
+from .utils import connect_to_db
 import logging
 
 logger = logging.getLogger(__name__)
@@ -93,6 +94,8 @@ def add():
 
     if os.environ.get('INDEX_ENGINE') == 'FAISS':
         index_engine = FaissEngine()
+
+    embeddings = OpenAIEmbeddings()
     docsearch = index_engine.read_index(db, embeddings)
     if docsearch is not None:
         query = request.json.get('query', None)
