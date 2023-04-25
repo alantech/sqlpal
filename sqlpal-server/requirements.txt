@@ -8,3 +8,4 @@ python-dotenv
 flask_cors
 flask_session
 chromadb
+huggingface_hub

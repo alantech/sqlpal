@@ -1,7 +1,8 @@
 import os
 from flask import Flask, current_app, jsonify, make_response, session
 from flask_session import Session
-        
+
+
 def create_app():
     app = Flask(__name__)
     app.config['SECRET_KEY'] = 'sqlpal'

@@ -1,10 +1,9 @@
-from flask import Blueprint, Flask, abort,  jsonify, make_response, request, session
+from flask import Blueprint, Flask, jsonify, make_response, request
 from flask_cors import CORS, cross_origin
-from langchain.embeddings.openai import OpenAIEmbeddings
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values
 import os
 import openai
-from sqlalchemy.orm import Session
+from .utils.embeddings import select_embeddings
 from .utils.autocomplete import autocomplete_query
 from .utils.indexes import FaissEngine, select_index
 
@@ -20,6 +19,7 @@ CORS(app, resources={
 app.config['CORS_HEADERS'] = 'Content-Type'
 
 load_dotenv()
+print(dotenv_values())
 openai.api_key = os.environ.get('OPENAI_API_KEY')
 
 
@@ -35,7 +35,7 @@ def discover():
 
     index_engine = select_index()
 
-    embeddings = OpenAIEmbeddings()
+    embeddings = select_embeddings()
     docsearch = index_engine.read_index(db, embeddings)
 
     tables = db.get_usable_table_names()
@@ -67,7 +67,7 @@ def autocomplete():
 
     index_engine = select_index()
 
-    embeddings = OpenAIEmbeddings()
+    embeddings = select_embeddings()
     docsearch = index_engine.read_index(db, embeddings)
     if docsearch is not None:
         query = request.json.get('query', None)
@@ -95,7 +95,7 @@ def add():
     if os.environ.get('INDEX_ENGINE') == 'FAISS':
         index_engine = FaissEngine()
 
-    embeddings = OpenAIEmbeddings()
+    embeddings = select_embeddings()
     docsearch = index_engine.read_index(db, embeddings)
     if docsearch is not None:
         query = request.json.get('query', None)
