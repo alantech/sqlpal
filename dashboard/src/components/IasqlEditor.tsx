@@ -249,6 +249,7 @@ export default function IasqlEditor() {
             }
             editor.renderer?.scroller?.removeChild(editor?.suggestionNode);
             editor.suggestionNode = null;
+            dispatch({ action: ActionType.ResetSuggestion, data: { tabIdx: editorSelectedTab } });
           } else if (editor) {
             editor.insert(' '.repeat(editor?.getOptions().tabSize ?? 2));
           }
@@ -269,6 +270,7 @@ export default function IasqlEditor() {
           if (editor?.suggestionNode) {
             editor.renderer?.scroller?.removeChild(editor?.suggestionNode);
             editor.suggestionNode = null;
+            dispatch({ action: ActionType.ResetSuggestion, data: { tabIdx: editorSelectedTab } });
           }
         },
       });
@@ -278,7 +280,6 @@ export default function IasqlEditor() {
   return (
     <VBox customClasses='mb-3'>
       <HBox alignment={align.between}>
-        {/* {!Object.keys(functions ?? {}).length ? <Spinner /> : <QuerySidebar />} */}
         <QuerySidebar />
         <VBox id='tabs-and-editor' customClasses='w-full' height='h-50vh'>
           <Tab
