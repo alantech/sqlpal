@@ -7,7 +7,7 @@ import dynamic from 'next/dynamic';
 import { useQueryParams } from '@/hooks/useQueryParams';
 
 import QuerySidebar from './QuerySidebar/QuerySidebar';
-import { HBox, align, VBox, Spinner, Tab } from './common';
+import { HBox, align, VBox, Tab } from './common';
 import { ActionType, useAppContext } from './providers/AppProvider';
 
 const AceEdit = dynamic(
@@ -29,17 +29,8 @@ const ForwardRefEditor = forwardRef((props: IAceEditorProps, ref: any) => (
 ForwardRefEditor.displayName = 'ForwardRefEditor';
 
 export default function IasqlEditor() {
-  const {
-    dispatch,
-    isDarkMode,
-    selectedDb,
-    functions,
-    token,
-    editorTabs,
-    editorSelectedTab,
-    forceRun,
-    connString,
-  } = useAppContext();
+  const { dispatch, isDarkMode, token, editorTabs, editorSelectedTab, forceRun, connString } =
+    useAppContext();
   const editorRef = useRef(null as null | ReactAce);
   const prevTabsLenRef = useRef(null as null | number);
   const queryParams = useQueryParams();
@@ -69,7 +60,7 @@ export default function IasqlEditor() {
   );
 
   const handleQueryToRunUpdate = useCallback(
-    (db: any, tabIdx: number, connString?: string) => {
+    (connString: string, tabIdx: number) => {
       const contentToBeRun = editorRef?.current?.editor?.getSelectedText()
         ? editorRef?.current?.editor?.getSelectedText()
         : editorRef?.current?.editor?.getValue();
@@ -78,7 +69,6 @@ export default function IasqlEditor() {
           token,
           action: ActionType.RunSql,
           data: {
-            db,
             content: contentToBeRun,
             tabIdx,
             connString,
@@ -112,7 +102,7 @@ export default function IasqlEditor() {
   const command = {
     name: 'Run SQL',
     bindKey: { win: 'Ctrl-Enter', mac: 'Cmd-Enter' },
-    exec: () => handleQueryToRunUpdate(selectedDb, editorSelectedTab, connString),
+    exec: () => handleQueryToRunUpdate(connString, editorSelectedTab),
   };
 
   useEffect(() => {
@@ -156,11 +146,11 @@ export default function IasqlEditor() {
           index: editorTabs.length - 2 >= 0 ? editorTabs.length - 2 : 0,
           forceRun,
           editorTabs,
-          selectedDb,
+          connString,
         },
       });
     }
-  }, [editorTabs, dispatch, forceRun, selectedDb, token]);
+  }, [editorTabs, dispatch, forceRun, connString, token]);
 
   useEffect(() => {
     if (!prevTabsLenRef.current || prevTabsLenRef.current !== editorTabs.length) {
@@ -195,6 +185,7 @@ export default function IasqlEditor() {
       }
       const finalText = selectedLines.length == 0 ? line : selectedLines.join('\n');
       if (finalText && finalText.length > 3) {
+        // todo: move this dto db api
         // having the final text, call the sqlpal autocomplete to get a completion
         const requestOptions = {
           method: 'POST',
