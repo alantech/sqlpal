@@ -7,3 +7,4 @@ promptlayer
 python-dotenv
 flask_cors
 flask_session
+chromadb

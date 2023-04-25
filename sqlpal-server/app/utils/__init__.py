@@ -7,11 +7,7 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain.chains.chat_vector_db.prompts import QA_PROMPT
 from langchain.chat_models import ChatOpenAI
 from langchain import SQLDatabase
-from sqlalchemy import Column, Integer, LargeBinary, String
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import Session
-
-import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +40,13 @@ Please continue the query with the following input:
 Output:
 """)
 
+
 def autocomplete_query(query, docsearch):
-    llm = ChatOpenAI(temperature=os.environ.get('OPENAI_TEMPERATURE', 0.9), model_name='gpt-3.5-turbo', n=os.environ.get('OPENAI_NUM_ANSWERS', 1))    
-    chain = load_qa_chain(llm, chain_type="stuff", prompt=QA_PROMPT)    # for the autocomplete case, stuff is the only possible value
-    docs = docsearch.similarity_search(query)    
+    llm = ChatOpenAI(temperature=os.environ.get('OPENAI_TEMPERATURE', 0.9),
+                     model_name='gpt-3.5-turbo', n=os.environ.get('OPENAI_NUM_ANSWERS', 1))
+    # for the autocomplete case, stuff is the only possible value
+    chain = load_qa_chain(llm, chain_type="stuff", prompt=QA_PROMPT)
+    docs = docsearch.similarity_search(query)
     query_str = CUSTOM_TEMPLATE.format(dialect="Postgres", input=query)
 
     res = chain(
@@ -60,37 +59,33 @@ def autocomplete_query(query, docsearch):
 
     return None
 
-def get_id_from_conn_str(conn_str):
-  hash_value = hashlib.sha256(conn_str.encode('utf-8')).hexdigest()
-  return hash_value
 
-Base = declarative_base()
-class FaissContent(Base):
-    __tablename__ = 'faiss_content'
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    content = Column(LargeBinary)
+def get_id_from_conn_str(conn_str):
+    hash_value = hashlib.sha256(conn_str.encode('utf-8')).hexdigest()
+    return hash_value[:54]  # for compatibility between indexes
+
 
 def connect_to_db(request):
-  conn_str = request.json.get('conn_str', None)
-  # try to fix the postgres endpoint deprecation
-  if conn_str:
-    if conn_str.startswith("postgres://"):
-      conn_str = conn_str.replace("postgres://", "postgresql://", 1)    
-    session['conn_str'] = get_id_from_conn_str(conn_str)
+    Base = declarative_base()
 
-    try:
-        # connect and create all tables
-        db = SQLDatabase.from_uri(conn_str, sample_rows_in_table_info=current_app.config.get('SAMPLE_ROWS_IN_TABLE_INFO'), indexes_in_table_info=True)
+    conn_str = request.json.get('conn_str', None)
+    # try to fix the postgres endpoint deprecation
+    if conn_str:
+        if conn_str.startswith("postgres://"):
+            conn_str = conn_str.replace("postgres://", "postgresql://", 1)
+        session['conn_str'] = get_id_from_conn_str(conn_str)
 
-        if os.environ.get('USE_DATABASE'):
-            Base.metadata.create_all(db._engine)
+        try:
+            # connect and create all tables
+            db = SQLDatabase.from_uri(conn_str, sample_rows_in_table_info=current_app.config.get(
+                'SAMPLE_ROWS_IN_TABLE_INFO'), indexes_in_table_info=True)
 
-        return db, None
-    except Exception as e:
-      logger.exception(e)
-      return None, make_response(jsonify({'error': 'Could not connect to database'}), 500)
-  else:
-    return None, make_response(jsonify({'error': 'No connection string provided'}), 400)  
+            if os.environ.get('USE_DATABASE'):
+                Base.metadata.create_all(db._engine)
 
-
+            return db, None
+        except Exception as e:
+            logger.exception(e)
+            return None, make_response(jsonify({'error': 'Could not connect to database'}), 500)
+    else:
+        return None, make_response(jsonify({'error': 'No connection string provided'}), 400)

@@ -5,8 +5,7 @@ from dotenv import load_dotenv
 import os
 import openai
 from sqlalchemy.orm import Session
-from sqlalchemy.ext.declarative import declarative_base
-from .utils.indexes import FaissEngine
+from .utils.indexes import FaissEngine, select_index
 
 from .utils import autocomplete_query, connect_to_db
 import logging
@@ -33,9 +32,10 @@ def discover():
     if error:
         return error
 
-    if os.environ.get('INDEX_ENGINE') == 'FAISS':
-        index_engine = FaissEngine()
-    docsearch = index_engine.read_index(db)
+    index_engine = select_index()
+
+    embeddings = OpenAIEmbeddings()
+    docsearch = index_engine.read_index(db, embeddings)
 
     tables = db.get_usable_table_names()
     texts = []
@@ -44,7 +44,6 @@ def discover():
         texts.append(info)
 
     # add to a vector search using embeddings
-    embeddings = OpenAIEmbeddings()
     if docsearch is None:
         docsearch = index_engine.read_index_contents(texts, embeddings)
     else:
@@ -65,10 +64,10 @@ def autocomplete():
     if error:
         return error
 
-    if os.environ.get('INDEX_ENGINE') == 'FAISS':
-        index_engine = FaissEngine()
+    index_engine = select_index()
 
-    docsearch = index_engine.read_index(db)
+    embeddings = OpenAIEmbeddings()
+    docsearch = index_engine.read_index(db, embeddings)
     if docsearch is not None:
         query = request.json.get('query', None)
         if query:
@@ -94,7 +93,7 @@ def add():
 
     if os.environ.get('INDEX_ENGINE') == 'FAISS':
         index_engine = FaissEngine()
-    docsearch = index_engine.read_index(db)
+    docsearch = index_engine.read_index(db, embeddings)
     if docsearch is not None:
         query = request.json.get('query', None)
         if query:
