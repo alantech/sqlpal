@@ -6,8 +6,8 @@
   "main": "dist/index.js",
   "scripts": {
     "docker-build": "docker build --no-cache -t sqlpal:latest .",
-    "docker-run": "docker run -e IASQL_ENV=ci -p 9876:9876 --env-file .env --tmpfs /tmp/indexes --name sqlpal sqlpal:latest",
-    "docker-clean": "docker stop sqlpal && docker rm -f sqlpal"
+    "docker-run": "docker-compose up",
+    "docker-clean": "docker compose down"
   },
   "repository": {
     "type": "git",

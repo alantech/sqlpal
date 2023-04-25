@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 import re
@@ -11,6 +12,8 @@ from sqlalchemy import Column, Integer, LargeBinary, String
 from sqlalchemy.ext.declarative import declarative_base
 from langchain.embeddings.openai import OpenAIEmbeddings
 from sqlalchemy.orm import Session
+
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -60,11 +63,15 @@ def autocomplete_query(query, docsearch):
 
     return None
 
+def get_id_from_conn_str(conn_str):
+  hash_value = hashlib.sha256(conn_str.encode('utf-8')).hexdigest()
+  return hash_value
+
 Base = declarative_base()
 class FaissContent(Base):
     __tablename__ = 'faiss_content'
     id = Column(Integer, primary_key=True)
-    session_id = Column(String)
+    name = Column(String)
     content = Column(LargeBinary)
 
 def connect_to_db(request):
@@ -73,7 +80,7 @@ def connect_to_db(request):
   if conn_str:
     if conn_str.startswith("postgres://"):
       conn_str = conn_str.replace("postgres://", "postgresql://", 1)    
-      session['conn_str'] = conn_str
+    session['conn_str'] = get_id_from_conn_str(conn_str)
 
     try:
         # connect and create all tables
@@ -90,13 +97,13 @@ def connect_to_db(request):
     return None, make_response(jsonify({'error': 'No connection string provided'}), 400)  
 
 def read_index(db):
-  filename = f"index_{session.sid}"
+  filename = "index_{}".format(session['conn_str'])
 
   content = None
   if os.environ.get('USE_DATABASE'):
     try:
       sess = Session(bind=db._engine)
-      row = sess.query(FaissContent).filter_by(session_id=session.sid).first()
+      row = sess.query(FaissContent).filter_by(name=session['conn_str']).first()
       if row:
          content = row.content
     except Exception as e:
@@ -116,3 +123,22 @@ def read_index(db):
     docsearch = None
 
   return docsearch
+
+def write_index(db, docsearch):
+  filename = "index_{}".format(session['conn_str'])
+  filepath = os.path.join(os.environ.get('INDEX_FOLDER'), filename+'.pkl')
+  docsearch.save_local(os.environ.get('INDEX_FOLDER'), filename)
+  if os.environ.get('USE_DATABASE'):
+    content = None
+    try:
+      with open(filepath, 'rb') as f:
+        content = f.read()
+    except Exception as e:
+        logger.exception(e)
+
+    if content is not None:
+      sess = Session(bind=db._engine)
+      new_file = FaissContent(name=session['conn_str'], content=content)
+      sess.add(new_file)
+      sess.commit()
+

@@ -176,24 +176,19 @@ export default function IasqlEditor() {
       const lastChar = eventData.args;
       if (lastChar === ' ' || lastChar === '\t' || lastChar === '\n') return;
 
-      const content = editorRef?.current?.editor.session.getValue() ?? '';
       const pos = editorRef?.current?.editor.getCursorPosition();
+      const lines = editorRef?.current?.editor.session.doc.getAllLines() ?? [];
+      let content;
+      if (pos && typeof pos.row !== 'undefined' && typeof pos.column !== 'undefined')
+        content = lines.slice(0, pos.row).join('\n') + '\n' + lines[pos.row].substring(0, pos.column) ?? '';
+      else content = editorRef?.current?.editor.session.getValue() ?? '';
+      console.log('content is ' + content);
 
-      const line = editorRef?.current?.editor.session.getLine(pos!.row) ?? '';
-
-      // retrieve also the 2 previous lines
-      const linesToRetrieve = 3;
-      const lines = content.split('\n');
-      let selectedLines: any[] = [];
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].includes(line)) {
-          const startIndex = Math.max(0, i - linesToRetrieve + 1);
-          const endIndex = i + 1;
-          selectedLines = lines.slice(startIndex, endIndex);
-          break;
-        }
-      }
-      const finalText = selectedLines.length == 0 ? line : selectedLines.join('\n');
+      // split in chunks and retrieve the last one
+      const chunks = content.split(';');
+      let finalText;
+      if (chunks.length > 0) finalText = chunks[chunks.length - 1];
+      console.log(finalText);
       if (finalText && finalText.length > 3) {
         // having the final text, call the sqlpal autocomplete to get a completion
         const requestOptions = {
