@@ -1,21 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import pg, { QueryResult } from 'pg';
 import { parse, deparse } from 'pgsql-parser';
-import { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions';
-
-import config from '@/server-config';
-
-export const baseConnConfig: PostgresConnectionOptions = {
-  name: 'base', // If you use multiple connections they must have unique names or typeorm bails
-  type: 'postgres',
-  username: config?.db.user,
-  password: config?.db.password,
-  host: config?.db.host,
-  database: 'iasql_metadata',
-  extra: {
-    ssl: { rejectUnauthorized: false },
-  }, // TODO: remove once DB instance with custom ssl cert is in place
-};
 
 async function run(req: NextApiRequest, res: NextApiResponse) {
   console.log('Handling request', {
@@ -80,12 +65,14 @@ async function runSql(sql: string, connectionString: string, res: NextApiRespons
     const dbId = connectionString.split('/').pop();
     const username = connectionString.split('/')[2].split(':')[0];
     const password = connectionString.split('/')[2].split(':')[1].split('@')[0];
+    const host = connectionString.split('/')[2].split(':')[1].split('@')[1];
+    const ssl = connectionString.includes('sslmode=require');
     connTemp = new pg.Client({
       database: dbId,
       user: username,
       password,
-      host: baseConnConfig.host,
-      ssl: baseConnConfig.extra.ssl,
+      host,
+      ssl,
     });
     // Based on https://node-postgres.com/apis/client#error
     connTemp.on('error', e => {

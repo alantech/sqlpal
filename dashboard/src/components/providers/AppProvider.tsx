@@ -1,17 +1,9 @@
 import React, { useCallback, useContext, useReducer } from 'react';
 
-import * as semver from 'semver';
-import { uniqueNamesGenerator, adjectives, colors, animals } from 'unique-names-generator';
-
 import { ConfigInterface } from '@/config/config';
 import * as DbActions from '@/services/dbApi';
-import * as Posthog from '@/services/posthog';
 
 import { useAppConfigContext } from './ConfigProvider';
-
-const nameGenConfig = {
-  dictionaries: [adjectives, colors, animals],
-};
 
 const AppContext = React.createContext({} as AppStore);
 
@@ -21,25 +13,14 @@ const useAppContext = () => {
 
 export enum ActionType {
   InitialLoad = 'InitialLoad',
-  NewDb = 'NewDb',
-  List = 'List',
   Disconnect = 'Disconnect',
-  UpgradeDb = 'UpgradeDb',
-  DisconnectDb = 'DisconnectDb',
-  UninstallModule = 'UninstallModule',
-  InstallModule = 'InstallModule',
-  SelectDb = 'SelectDb',
   RunSql = 'RunSql',
   DiscoverSchema = 'DiscoverSchema',
-  SetConnStr = 'ConnStr',
-  RunAutocompleteSql = 'RunAutocompleteSql',
+  SetConnStr = 'SetConnStr',
   EditContent = 'EditContent',
-  FetchData = 'FetchData',
-  Stop = 'Stop',
   RunningSql = 'RunningSql',
   ShowDisconnect = 'ShowDisconnect',
   ShowConnect = 'ShowConnect',
-  ResetNewDb = 'ResetNewDb',
   ResetError = 'ResetError',
   SetError = 'SerError',
   EditorNewTab = 'EditorNewTab',
@@ -47,6 +28,8 @@ export enum ActionType {
   SelectAppTheme = 'SelectAppTheme',
   EditorCloseTab = 'EditorCloseTab',
   SelectTable = 'SelectTable',
+  GetSuggestions = 'GetSuggestions',
+  ResetSuggestion = 'ResetSuggestion',
 }
 
 interface Payload {
@@ -62,7 +45,7 @@ interface AppState {
   selectedDb: any;
   oldestVersion?: string;
   latestVersion?: string;
-  connString?: string;
+  connString: string;
   isRunningSql: boolean;
   databases: any[];
   error: string | null;
@@ -94,6 +77,7 @@ interface AppState {
     queryRes?: any | null;
     closable?: boolean;
     isRunning?: boolean;
+    suggestions: { value: string; meta: string; score: number }[];
   }[];
   forceRun: boolean;
 }
@@ -102,59 +86,17 @@ interface AppStore extends AppState {
   dispatch: (payload: Payload) => Promise<void>;
 }
 
-const initializingQueries = `
-  select * from iasql_help();
+const gettingStarted = `-- Welcome to SQLPal! Steps to get started:
 
-  select t.module,
-         c.table_name,
-         c.ordinal_position,
-         c.column_name,
-         c.data_type,
-         c.is_nullable,
-         c.column_default
-  from information_schema.columns as c
-           inner join iasql_tables as t on c.table_name = t.table
-  order by table_name, ordinal_position;
+-- 1. Start writing your queries. Once the suggestion appears press tab to accept or esc to ignore.
 
-  select * from iasql_modules_list();
-
-  select
-    t.table as table_name,
-    (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from public.%I', t.table), FALSE, TRUE, '')))[1]::text::int AS record_count
-  from iasql_tables as t;
-`;
-
-const gettingStarted = `-- Welcome to IaSQL! Steps to get started:
-
--- 1. An IaSQL modules roughly maps to a cloud service. Install a module by clicking the "Install" button from the modules list on the sidebar to automatically import existing infrastructure from the cloud service.
-
--- 2. Write any SQL query here and run it using the "Run query" button on the top
--- right or by using the Ctrl+Enter (CMD+Return on Mac) keyboard shortcut.
-
--- The sidebar's "Schema" tab shows tables and columns of the installed modules. Clicking the help icon will take directly to the documentation of each module. The table icon will also show up beside any table with data and it can be used to do a quick select query.
+-- 2. You can right comments too in order to get a suggestion for the next query.
 
 -- Open as many tabs as you want in the top right corner and run queries on each of them.
--- If you have any questions, use the navbar to check the documentation or contact us via Discord!
+-- If you have any questions, use the navbar to check the documentation or contact us!
 
 -- Happy coding :)
 `;
-
-function discoverData(connString: string) {
-  const requestOptions = {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ conn_str: connString }),
-    credentials: 'include' as RequestCredentials,
-  };
-  const endpoint = process.env.AUTOCOMPLETE_ENDPOINT ?? 'http://localhost:5000/discover';
-  //const endpoint = "http://192.168.2.38:5000/discover"
-
-  fetch(endpoint, requestOptions)
-    .then(response => response.json())
-    .catch(error => {
-      console.error('Error:', error);
-    });
-}
 
 const reducer = (state: AppState, payload: Payload): AppState => {
   const { error } = payload?.data ?? { error: null };
@@ -162,36 +104,13 @@ const reducer = (state: AppState, payload: Payload): AppState => {
     return { ...state, error };
   }
   switch (payload.action) {
-    case ActionType.SelectDb: {
-      const { db } = payload.data;
-      db.isUnsupported =
-        !semver.valid(db?.version) || (!!state.oldestVersion && semver.lt(db?.version, state.oldestVersion));
-      const tabsCopy = [...state.editorTabs];
-      if (db?.alias !== state.selectedDb?.alias) {
-        tabsCopy.map(t => (t.queryRes = undefined));
-      }
-      return { ...state, selectedDb: db, editorTabs: tabsCopy };
-    }
     case ActionType.InitialLoad: {
       const { token } = payload;
       const { initialDatabases, latestVersion, oldestVersion } = payload.data;
       return { ...state, databases: initialDatabases, latestVersion, oldestVersion, token };
     }
-    case ActionType.NewDb: {
-      const { newDb, updatedDatabases } = payload.data;
-      const newSelectedDb = updatedDatabases.find((d: any) => d.alias === newDb.alias);
-      const tabsCopy = [...state.editorTabs];
-      tabsCopy.map(t => (t.queryRes = undefined));
-      return {
-        ...state,
-        databases: updatedDatabases,
-        selectedDb: newSelectedDb,
-        newDb,
-        editorTabs: tabsCopy,
-      };
-    }
-    case ActionType.ResetNewDb: {
-      return { ...state, newDb: undefined };
+    case ActionType.Disconnect: {
+      return { ...state, connString: '', shouldShowDisconnect: false };
     }
     case ActionType.EditContent: {
       const { content: editorContent } = payload.data;
@@ -219,120 +138,7 @@ const reducer = (state: AppState, payload: Payload): AppState => {
           forceRun: false,
         };
       }
-
-      // add the query to the index
-      if (queryRes && queryRes.length > 0) {
-        const requestOptions = {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: queryRes[0].statement }),
-          credentials: 'include' as RequestCredentials,
-        };
-        const endpoint = process.env.AUTOCOMPLETE_ENDPOINT ?? 'http://localhost:5000/add';
-
-        fetch(endpoint, requestOptions)
-          .then(response => response.json())
-          .catch(error => {
-            console.error('Error:', error);
-          });
-      }
-
       return { ...state, editorTabs: tabsCopy, forceRun: false };
-    }
-    case ActionType.RunAutocompleteSql: {
-      const { autoCompleteRes } = payload.data;
-      const moduleData = {} as {
-        [moduleName: string]: {
-          [tableName: string]: { [columnName: string]: { dataType: string; isMandatory: boolean } } & {
-            recordCount: number;
-          };
-        };
-      };
-      const allModules = {} as { [moduleName: string]: string[] };
-      const functionData = {} as {
-        [moduleName: string]: {
-          [functionName: string]: string;
-        };
-      };
-      (autoCompleteRes?.[0]?.result ?? []).forEach((row: any) => {
-        // select * from iasql_help();
-        const moduleName = row.module;
-        const functionName = row.name;
-        const functionSignature = row.signature;
-        functionData[moduleName] = functionData[moduleName] || {};
-        functionData[moduleName][functionName] = functionSignature;
-      });
-      (autoCompleteRes?.[1]?.result ?? []).forEach((row: any) => {
-        // t.module, c.table_name, c.ordinal_position, c.column_name, c.data_type
-        const moduleName = row.module;
-        const tableName = row.table_name;
-        const columnName = row.column_name;
-        const dataType = row.data_type;
-        let isMandatory = true;
-        if (row.column_default !== null || row.is_nullable === 'YES') isMandatory = false;
-        const recordCount =
-          autoCompleteRes?.[3]?.result?.find((r: any) => r.table_name === tableName)?.record_count ?? 0; // t.table as table_name, xpath('/row/c/text()' ...
-        moduleData[moduleName] = moduleData[moduleName] || {};
-        moduleData[moduleName][tableName] = moduleData[moduleName][tableName] || {};
-        moduleData[moduleName][tableName][columnName] = { dataType, isMandatory };
-        moduleData[moduleName][tableName]['recordCount'] = recordCount;
-      });
-      (autoCompleteRes?.[2]?.result ?? []).forEach((row: any) => {
-        // select * from iasql_modules_list();
-        const moduleName = row.module_name;
-        const moduleDependencies = row.dependencies.join(', ');
-        allModules[moduleName] = moduleDependencies;
-      });
-      return {
-        ...state,
-        functions: functionData,
-        allModules,
-        installedModules: moduleData,
-      };
-    }
-    case ActionType.InstallModule: {
-      const { moduleName: installModule } = payload.data;
-      const installContent = `/* BEGIN IaSQL auto-generated statement */
-SELECT * FROM iasql_install('${installModule}');
-/* END IaSQL auto-generated statement */
-`;
-      const tabsCopy = [...state.editorTabs];
-      const newTab = tabsCopy.pop();
-      tabsCopy.push({ title: `Query-${state.editorTabsCreated}`, content: installContent, closable: true });
-      if (newTab) tabsCopy.push(newTab);
-      return {
-        ...state,
-        editorTabs: tabsCopy,
-        editorTabsCreated: state.editorTabsCreated + 1,
-        forceRun: true,
-      };
-    }
-    case ActionType.UninstallModule: {
-      const { moduleName: uninstallModule } = payload.data;
-      const uninstallContent = `/* BEGIN IaSQL auto-generated statement */
-SELECT * FROM iasql_uninstall('${uninstallModule}');
-/* END IaSQL auto-generated statement */
-`;
-      const tabsCopy = [...state.editorTabs];
-      const newTab = tabsCopy.pop();
-      tabsCopy.push({ title: `Query-${state.editorTabsCreated}`, content: uninstallContent, closable: true });
-      if (newTab) tabsCopy.push(newTab);
-      return {
-        ...state,
-        editorTabs: tabsCopy,
-        editorTabsCreated: state.editorTabsCreated + 1,
-        forceRun: true,
-      };
-    }
-    case ActionType.DisconnectDb: {
-      const { databases: updatedDbsAfterDisconnect } = payload.data;
-      const updatedSelectedDb = updatedDbsAfterDisconnect.length ? updatedDbsAfterDisconnect[0] : null;
-      return {
-        ...state,
-        selectedDb: updatedSelectedDb,
-        databases: updatedDbsAfterDisconnect,
-        shouldShowDisconnect: false,
-      };
     }
     case ActionType.ShowDisconnect: {
       const { show } = payload.data;
@@ -352,7 +158,12 @@ SELECT * FROM iasql_uninstall('${uninstallModule}');
     case ActionType.EditorNewTab: {
       const tabsCopy = [...state.editorTabs];
       const newTab = tabsCopy.pop();
-      tabsCopy.push({ title: `Query-${state.editorTabsCreated}`, content: '', closable: true });
+      tabsCopy.push({
+        title: `Query-${state.editorTabsCreated}`,
+        content: '',
+        closable: true,
+        suggestions: [],
+      });
       if (newTab) tabsCopy.push(newTab);
       return { ...state, editorTabs: tabsCopy, editorTabsCreated: state.editorTabsCreated + 1 };
     }
@@ -375,7 +186,12 @@ SELECT * FROM iasql_uninstall('${uninstallModule}');
       const tabsCopy = [...state.editorTabs];
       const newTab = tabsCopy.pop();
       const tabContent = `SELECT * FROM ${tableName};`;
-      tabsCopy.push({ title: `Query-${state.editorTabsCreated}`, content: tabContent, closable: true });
+      tabsCopy.push({
+        title: `Query-${state.editorTabsCreated}`,
+        content: tabContent,
+        closable: true,
+        suggestions: [],
+      });
       if (newTab) tabsCopy.push(newTab);
       return {
         ...state,
@@ -388,6 +204,18 @@ SELECT * FROM iasql_uninstall('${uninstallModule}');
       const { connString } = payload.data;
       return { ...state, connString };
     }
+    case ActionType.GetSuggestions: {
+      const { suggestions, tabIdx } = payload.data;
+      const tabsCopy = [...state.editorTabs];
+      tabsCopy[tabIdx].suggestions = suggestions;
+      return { ...state, editorTabs: tabsCopy };
+    }
+    case ActionType.ResetSuggestion: {
+      const { tabIdx } = payload.data;
+      const tabsCopy = [...state.editorTabs];
+      tabsCopy[tabIdx].suggestions = [];
+      return { ...state, editorTabs: tabsCopy };
+    }
   }
   return state;
 };
@@ -398,31 +226,32 @@ const middlewareReducer = async (
   payload: Payload,
 ) => {
   const { token } = payload;
-  const { backendUrl } = config?.engine;
+  const { backendUrl, palServerUrl } = config?.engine;
   switch (payload.action) {
     case ActionType.SetConnStr: {
       const { connString } = payload.data;
       try {
-        discoverData(connString);
         dispatch({ ...payload, data: { connString } });
-        break;
       } catch (e: any) {
         const error = e.message ? e.message : `Unexpected error setting connection string`;
         dispatch({ ...payload, data: { error } });
         break;
       }
+      try {
+        await DbActions.discoverData(palServerUrl, connString);
+      } catch (e) {
+        console.log(`/discover failed with error: ${e}.`);
+      }
+      break;
     }
     case ActionType.InitialLoad: {
       try {
-        // const initialDatabases = await DbActions.list(token ?? '', backendUrl, config);
-        // const oldestVer = await DbActions.getOldestVersion(token ?? '', backendUrl);
-        // const latestVer = await DbActions.getLatestVersion(token ?? '', backendUrl);
         dispatch({
           ...payload,
           data: {
             initialDatabases: [],
-            oldestVersion: '0', //oldestVer.split('-')[0],
-            latestVersion: '1', //latestVer.split('-')[0],
+            oldestVersion: '0',
+            latestVersion: '1',
           },
         });
         break;
@@ -432,206 +261,73 @@ const middlewareReducer = async (
         break;
       }
     }
-    case ActionType.NewDb: {
-      if (!token) {
-        dispatch({ ...payload, data: { error: 'No auth token defined.' } });
-        break;
-      }
-      const { dbAlias, awsSecretAccessKey, awsRegion, awsAccessKeyId, awsSessionToken } = payload.data;
-      const alias = dbAlias ? dbAlias : uniqueNamesGenerator(nameGenConfig);
-      let newDb: any = null;
-      try {
-        newDb = await DbActions.newDb(token, backendUrl, alias);
-      } catch (e: any) {
-        const error = e.message ? e.message : `Unexpected error connecting database ${alias}`;
-        dispatch({ ...payload, data: { error } });
-        break;
-      }
-      try {
-        await DbActions.run(
-          token,
-          backendUrl,
-          alias,
-          `
-          SELECT * FROM iasql_install('aws_account');
-        `,
-        );
-      } catch (e: any) {
-        const error = e.message ? e.message : `Error adding aws_account ${alias}`;
-        dispatch({ ...payload, data: { error } });
-        break;
-      }
-      // New DBs will always use the newest module conventions, so this is switched to the two
-      // table aws_account form now
-      // ${awsRegion.name}
-      try {
-        if (awsSessionToken) {
-          await DbActions.run(
-            token,
-            backendUrl,
-            alias,
-            `
-            INSERT INTO aws_credentials (access_key_id, secret_access_key, session_token)
-            VALUES ('${awsAccessKeyId}', '${awsSecretAccessKey}', '${awsSessionToken}');
-          `,
-          );
-        } else {
-          await DbActions.run(
-            token,
-            backendUrl,
-            alias,
-            `
-            INSERT INTO aws_credentials (access_key_id, secret_access_key)
-            VALUES ('${awsAccessKeyId}', '${awsSecretAccessKey}');
-          `,
-          );
-        }
-        await DbActions.run(
-          token,
-          backendUrl,
-          alias,
-          `
-          SELECT * FROM iasql_begin();
-        `,
-        );
-        await DbActions.run(
-          token,
-          backendUrl,
-          alias,
-          `
-          SELECT * FROM iasql_commit();
-        `,
-        );
-        await DbActions.run(
-          token,
-          backendUrl,
-          alias,
-          `
-          SELECT * FROM default_aws_region('${awsRegion.name}');
-        `,
-        );
-      } catch (e: any) {
-        middlewareReducer(config, dispatch, {
-          action: ActionType.DisconnectDb,
-          token,
-          data: {
-            dbAlias: alias,
-          },
-        });
-        const error = e.message ? e.message : `Error adding credentials ${dbAlias}`;
-        dispatch({ ...payload, data: { error } });
-        break;
-      }
-      if (newDb) {
-        // update the db list before hiding the modal
-        const updatedDatabases = await DbActions.list(token, backendUrl, config);
-        dispatch({ ...payload, data: { newDb, updatedDatabases } });
-      }
-      break;
-    }
     case ActionType.RunSql: {
       if (!token) {
         dispatch({ ...payload, data: { error: 'No auth token defined.' } });
         break;
       }
-      const { content, db: runningDb, tabIdx, connString } = payload.data;
-      if (runningDb?.isUnsupported) {
-        break;
-      }
+      const { content, tabIdx, connString } = payload.data;
+      if (!connString) break;
       let queryRes: any = 'Invalid or empty response';
-      let databases: any[] | null = null;
-      let shouldUpdate = false;
-      let updatedAutoCompleteRes: any;
-      let errored = false;
       let queryError: string = 'Unhandled error in SQL execution';
       dispatch({ action: ActionType.RunningSql, data: { isRunning: true, tabIdx } });
       try {
-        if (token && content)
-          queryRes = await DbActions.run(token, backendUrl, runningDb?.alias, content, connString);
-        const compFn = (r: any, stmt: string) =>
-          r.statement && typeof r.statement === 'string' && r.statement.toLowerCase().indexOf(stmt) !== -1;
-        for (const r of queryRes) {
-          if (compFn(r, 'iasql_install(') || compFn(r, 'iasql_uninstall(')) shouldUpdate = true;
-        }
-        if (shouldUpdate) {
-          databases = await DbActions.list(token, backendUrl, config);
-          updatedAutoCompleteRes = await DbActions.run(
-            token,
-            backendUrl,
-            runningDb?.alias,
-            initializingQueries,
-            connString,
-          );
+        if (token && content) {
+          queryRes = await DbActions.run(backendUrl, connString, content);
         }
       } catch (e: any) {
         if (e.message) {
           queryError = e.message;
         }
         queryRes = queryError;
-        errored = true;
       }
       dispatch({ action: ActionType.RunningSql, data: { isRunning: false, tabIdx } });
-      Posthog.capture(config, 'RUN_SQL', {
-        dbAlias: runningDb?.alias,
-        sql: content,
-        error: errored ? queryError : '',
-        output: queryRes,
-      });
-      dispatch({ ...payload, data: { queryRes, databases, tabIdx } });
-      if (updatedAutoCompleteRes) {
-        dispatch({
-          ...payload,
-          action: ActionType.RunAutocompleteSql,
-          data: { autoCompleteRes: updatedAutoCompleteRes },
-        });
-      }
-      break;
-    }
-    case ActionType.RunAutocompleteSql: {
-      if (!token) {
-        dispatch({ ...payload, data: { error: 'No auth token defined.' } });
-        break;
-      }
-      const { dbAlias: autoCompleteDbAlias } = payload.data;
-      try {
-        const autoCompleteRes = await DbActions.run(token, backendUrl, autoCompleteDbAlias, '');
-        dispatch({ ...payload, data: { autoCompleteRes } });
-      } catch (e: any) {
-        const error = e.message ? e.message : `Unexpected error`;
-        dispatch({ ...payload, data: { error } });
-      }
-      break;
-    }
-    case ActionType.DisconnectDb: {
-      if (!token) {
-        dispatch({ ...payload, data: { error: 'No auth token defined.' } });
-        break;
-      }
-      const { dbAlias: disconnectDbAlias } = payload.data;
-      try {
-        await DbActions.disconnect(token, backendUrl, disconnectDbAlias);
-        const afterDisconnectDbs = await DbActions.list(token, backendUrl, config);
-        dispatch({ ...payload, data: { databases: afterDisconnectDbs } });
-      } catch (e: any) {
-        const error = e.message ? e.message : `Unexpected error disconnecting database ${disconnectDbAlias}`;
-        dispatch({ ...payload, data: { error } });
+      dispatch({ ...payload, data: { queryRes, databases: [], tabIdx } });
+      // add the query to the index
+      if (queryRes && queryRes.length > 0) {
+        try {
+          await DbActions.addStatement(palServerUrl, connString, queryRes[0].statement ?? '');
+        } catch (e) {
+          console.error(e);
+        }
       }
       break;
     }
     case ActionType.EditorSelectTab: {
-      const { selectedDb, forceRun, index, editorTabs } = payload.data;
+      const { connString, forceRun, index, editorTabs } = payload.data;
       const contentToBeRun = editorTabs?.[index]?.content ?? '';
       if (token && forceRun && contentToBeRun) {
         middlewareReducer(config, dispatch, {
           token,
           action: ActionType.RunSql,
           data: {
-            db: selectedDb,
+            connString,
             content: contentToBeRun,
             tabIdx: index,
           },
         });
       }
+      break;
+    }
+    case ActionType.GetSuggestions: {
+      const { connString, query, tabIdx } = payload.data;
+      if (!connString) break;
+      let suggestions: any[] = [];
+      try {
+        console.log(`callig get suggestions `);
+        const suggestionsRes = await DbActions.getSuggestions(palServerUrl, connString, query);
+        console.log(`suggestions response? `);
+        if (suggestionsRes['output_text']) {
+          suggestions = [{ value: suggestionsRes['output_text'], meta: 'custom', score: 1000 }];
+        }
+      } catch (e: any) {
+        // todo: handle error
+        console.log('catching this error');
+        console.error(e);
+        suggestions = [];
+      }
+      dispatch({ ...payload, data: { suggestions, tabIdx } });
+      break;
     }
     default: {
       dispatch(payload);
@@ -658,7 +354,7 @@ const AppProvider = ({ children }: { children: any }) => {
     editorSelectedTab: 0,
     editorTabsCreated: 1,
     editorTabs: [
-      { title: 'Getting started', content: gettingStarted, closable: true },
+      { title: 'Getting started', content: gettingStarted, closable: true, suggestions: [] },
       {
         title: '+',
         content: '',
@@ -669,6 +365,7 @@ const AppProvider = ({ children }: { children: any }) => {
             action: ActionType.EditorNewTab,
           });
         },
+        suggestions: [],
       },
     ],
     forceRun: false,

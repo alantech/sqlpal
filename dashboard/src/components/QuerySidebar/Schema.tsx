@@ -11,7 +11,6 @@ import {
 import { TbNetwork } from 'react-icons/tb';
 
 import { TableIcon } from '@heroicons/react/outline';
-import { QuestionMarkCircleIcon } from '@heroicons/react/solid';
 
 import { Accordion, align, HBox, VBox } from '../common';
 import { ActionType, useAppContext } from '../providers/AppProvider';
@@ -71,17 +70,7 @@ export default function Schema({
       },
     });
   };
-  const helpIcon = <QuestionMarkCircleIcon className='w-4 h-4 m-2' aria-hidden='true' />;
-  const goToDocs = (moduleName: string) => {
-    let modulePath;
-    if (typeof moduleName === 'string' && moduleName.startsWith('aws')) modulePath = 'aws';
-    else if (moduleName.startsWith('iasql')) modulePath = 'builtin';
-    window.open(
-      `https://iasql.com/docs/modules/${modulePath ? `${modulePath}/${moduleName}/` : ''}`,
-      '_blank',
-      'noreferrer',
-    );
-  };
+
   type columnMetadata = { dataType: string; isMandatory: boolean };
 
   return (
@@ -95,7 +84,6 @@ export default function Schema({
             title={moduleName.split('@')[0]}
             titleCustomClasses='font-bold'
             defaultOpen={true}
-            action={{ icon: helpIcon, handler: goToDocs }}
           >
             {Object.keys(moduleData[moduleName]).map((tableName: string) => (
               <Accordion
@@ -103,11 +91,7 @@ export default function Schema({
                 id={tableName}
                 title={tableName}
                 defaultOpen={false}
-                action={
-                  moduleData[moduleName][tableName]?.recordCount > 0
-                    ? { icon: selectTableIcon, handler: selectTable }
-                    : undefined
-                }
+                action={{ icon: selectTableIcon, handler: selectTable }}
               >
                 {Object.entries(moduleData[moduleName][tableName])
                   .filter(([col, _]) => col !== 'recordCount')
