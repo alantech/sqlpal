@@ -3,7 +3,7 @@ FROM node:lts-bullseye-slim AS base
 
 ## Install OS Packages
 RUN apt update
-RUN apt install --no-install-recommends curl jq gnupg ca-certificates python3-pip supervisor  -y \
+RUN apt install --no-install-recommends curl jq gnupg ca-certificates python3-pip python3-venv supervisor  -y \
   && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && mkdir -p /etc/supervisor/conf.d
 
 #####################################################################################################################################################
@@ -13,7 +13,7 @@ FROM base AS build
 
 ## Install OS and Postgres Dev Packages
 RUN apt update
-RUN apt install build-essential git make g++ libcurl4-openssl-dev -y
+RUN apt install build-essential git make g++ libcurl4-openssl-dev -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 #####################################################################################################################################################
 
@@ -38,10 +38,15 @@ RUN yarn build
 
 FROM build as sqlpal-stage
 
-WORKDIR /sqlpal-server
+ENV LANG=C.UTF-8
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 # copy the requirements file into the image
+WORKDIR /sqlpal-server
+RUN python3 -m venv ./venv
 COPY sqlpal-server/requirements.txt ./
+RUN . ./venv/bin/activate && pip install --no-cache-dir -r requirements.txt
 
 # copy every content from the local file to the image
 COPY sqlpal-server/run.py ./
@@ -65,10 +70,9 @@ COPY --from=sqlpal-stage /sqlpal-server/requirements.txt ./
 COPY --from=sqlpal-stage /sqlpal-server/app ./app
 COPY --from=sqlpal-stage /sqlpal-server/run.py ./
 COPY --from=sqlpal-stage /sqlpal-server/config.py ./
+COPY --from=sqlpal-stage /sqlpal-server/venv ./venv
 
-# install the dependencies and packages in the requirements file
 WORKDIR /
-RUN pip install -r ./sqlpal-server/requirements.txt
 
 ## Default ENVs that can be overwritten
 ARG IASQL_ENV=local
