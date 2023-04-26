@@ -3,6 +3,7 @@ from langchain.embeddings import OpenAIEmbeddings, HuggingFaceEmbeddings
 
 
 def select_embeddings():
+    embeddings = None
     if os.environ.get('EMBEDDING_METHOD', 'openai') == 'huggingface':
         embeddings = HuggingFaceEmbeddings()
     elif os.environ.get('EMBEDDING_METHOD', 'openai') == 'openai':
