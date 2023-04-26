@@ -3,7 +3,9 @@ langchain
 psycopg2-binary
 faiss-cpu
 tiktoken
-promptlayer
 python-dotenv
 flask_cors
 flask_session
+chromadb
+openai
+huggingface_hub
