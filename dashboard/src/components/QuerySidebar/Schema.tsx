@@ -74,7 +74,9 @@ export default function Schema({
           id={tableName}
           title={tableName}
           defaultOpen={false}
-          action={{ icon: selectTableIcon, handler: selectTable }}
+          action={
+            !!schema[tableName].recordCount ? { icon: selectTableIcon, handler: selectTable } : undefined
+          }
         >
           {Object.entries(schema[tableName])
             .filter(([col, _]) => col !== 'recordCount')

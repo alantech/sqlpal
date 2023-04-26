@@ -87,6 +87,11 @@ const initialQuery = `
     on c.table_name = t.table_name
   where t.table_schema = 'public'
   order by table_name, ordinal_position;
+
+  select
+    t.table_name as table_name,
+    (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from public.%I', t.table_name), FALSE, TRUE, '')))[1]::text::int AS record_count
+  from (select table_name from information_schema.tables where table_schema = 'public') as t;
 `;
 
 const gettingStarted = `-- Welcome to SQLPal! Steps to get started:
