@@ -13,7 +13,7 @@ FROM base AS build
 
 ## Install OS and Postgres Dev Packages
 RUN apt update
-RUN apt install build-essential git make g++ libcurl4-openssl-dev -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+RUN apt install build-essential git make g++ libcurl4-openssl-dev python3-dev -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 #####################################################################################################################################################
 
@@ -46,7 +46,7 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /sqlpal-server
 RUN python3 -m venv ./venv
 COPY sqlpal-server/requirements.txt ./
-RUN . ./venv/bin/activate && pip install --no-cache-dir -r requirements.txt
+RUN . ./venv/bin/activate && pip install --no-cache-dir wheel && pip install --no-cache-dir -r requirements.txt
 
 # copy every content from the local file to the image
 COPY sqlpal-server/run.py ./
