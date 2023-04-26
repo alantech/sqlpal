@@ -16,7 +16,7 @@ export enum ActionType {
   Disconnect = 'Disconnect',
   RunSql = 'RunSql',
   DiscoverSchema = 'DiscoverSchema',
-  SetConnStr = 'SetConnStr',
+  SetConnString = 'SetConnString',
   EditContent = 'EditContent',
   RunningSql = 'RunningSql',
   ShowDisconnect = 'ShowDisconnect',
@@ -41,26 +41,15 @@ interface Payload {
 
 interface AppState {
   token?: string;
-  // TODO: ADD DB TYPE!!!
-  selectedDb: any;
   oldestVersion?: string;
   latestVersion?: string;
   connString: string;
   isRunningSql: boolean;
   databases: any[];
   error: string | null;
-  newDb?: any;
-  allModules: { [moduleName: string]: string[] };
-  functions: {
-    [moduleName: string]: {
-      [functionName: string]: string;
-    };
-  };
-  installedModules: {
-    [moduleName: string]: {
-      [tableName: string]: { [columnName: string]: { dataType: string; isMandatory: boolean } } & {
-        recordCount: number;
-      };
+  schema: {
+    [tableName: string]: { [columnName: string]: { dataType: string; isMandatory: boolean } } & {
+      recordCount: number;
     };
   };
   isDarkMode: boolean;
@@ -85,6 +74,25 @@ interface AppState {
 interface AppStore extends AppState {
   dispatch: (payload: Payload) => Promise<void>;
 }
+
+const initialQuery = `
+  select c.table_name,
+         c.ordinal_position,
+         c.column_name,
+         c.data_type,
+         c.is_nullable,
+         c.column_default
+  from information_schema.columns as c
+  inner join information_schema.tables as t
+    on c.table_name = t.table_name
+  where t.table_schema = 'public'
+  order by table_name, ordinal_position;
+
+  select
+    t.table_name as table_name,
+    (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from public.%I', t.table_name), FALSE, TRUE, '')))[1]::text::int AS record_count
+  from (select table_name from information_schema.tables where table_schema = 'public') as t;
+`;
 
 const gettingStarted = `-- Welcome to SQLPal! Steps to get started:
 
@@ -129,11 +137,9 @@ const reducer = (state: AppState, payload: Payload): AppState => {
       const tabsCopy = [...state.editorTabs];
       tabsCopy[tabIdx].queryRes = queryRes;
       if (runSqlUpdatedDbs !== null && runSqlUpdatedDbs !== undefined) {
-        const current = runSqlUpdatedDbs.find((d: any) => d.alias === state.selectedDb.alias);
         return {
           ...state,
           databases: runSqlUpdatedDbs,
-          selectedDb: current,
           editorTabs: tabsCopy,
           forceRun: false,
         };
@@ -200,9 +206,9 @@ const reducer = (state: AppState, payload: Payload): AppState => {
         forceRun: true,
       };
     }
-    case ActionType.SetConnStr: {
-      const { connString } = payload.data;
-      return { ...state, connString };
+    case ActionType.SetConnString: {
+      const { connString, schema } = payload.data;
+      return { ...state, connString, schema };
     }
     case ActionType.GetSuggestions: {
       const { suggestions, tabIdx } = payload.data;
@@ -228,10 +234,29 @@ const middlewareReducer = async (
   const { token } = payload;
   const { backendUrl, palServerUrl } = config?.engine;
   switch (payload.action) {
-    case ActionType.SetConnStr: {
+    case ActionType.SetConnString: {
       const { connString } = payload.data;
       try {
-        dispatch({ ...payload, data: { connString } });
+        const schemaRes = await DbActions.run(backendUrl, connString, initialQuery);
+        const schema = {} as {
+          [tableName: string]: { [columnName: string]: { dataType: string; isMandatory: boolean } } & {
+            recordCount: number;
+          };
+        };
+        (schemaRes?.[0]?.result ?? []).forEach((row: any) => {
+          // c.table_name, c.ordinal_position, c.column_name, c.data_type
+          const tableName = row.table_name;
+          const columnName = row.column_name;
+          const dataType = row.data_type;
+          let isMandatory = true;
+          if (row.column_default !== null || row.is_nullable === 'YES') isMandatory = false;
+          const recordCount =
+            schemaRes?.[1]?.result?.find((r: any) => r.table_name === tableName)?.record_count ?? 0; // t.table as table_name, xpath('/row/c/text()' ...
+          schema[tableName] = schema[tableName] || {};
+          schema[tableName][columnName] = { dataType, isMandatory };
+          schema[tableName]['recordCount'] = recordCount;
+        });
+        dispatch({ ...payload, data: { connString, schema } });
       } catch (e: any) {
         const error = e.message ? e.message : `Unexpected error setting connection string`;
         dispatch({ ...payload, data: { error } });
@@ -307,6 +332,7 @@ const middlewareReducer = async (
           },
         });
       }
+      dispatch({ ...payload, data: { index } });
       break;
     }
     case ActionType.GetSuggestions: {
@@ -338,15 +364,12 @@ const middlewareReducer = async (
 const AppProvider = ({ children }: { children: any }) => {
   const { config } = useAppConfigContext();
   const initialState: AppState = {
-    selectedDb: null,
     oldestVersion: undefined,
     latestVersion: undefined,
     isRunningSql: false,
     databases: [],
     error: null,
-    allModules: {},
-    functions: {},
-    installedModules: {},
+    schema: {},
     isDarkMode: false,
     shouldShowDisconnect: false,
     shouldShowConnect: false,
@@ -382,16 +405,12 @@ const AppProvider = ({ children }: { children: any }) => {
     <AppContext.Provider
       value={{
         token: state.token,
-        selectedDb: state.selectedDb,
         isDarkMode: state.isDarkMode,
         databases: state.databases,
         error: state.error,
         latestVersion: state.latestVersion,
         oldestVersion: state.oldestVersion,
-        newDb: state.newDb,
-        allModules: state.allModules,
-        functions: state.functions,
-        installedModules: state.installedModules,
+        schema: state.schema,
         isRunningSql: state.isRunningSql,
         shouldShowDisconnect: state.shouldShowDisconnect,
         shouldShowConnect: state.shouldShowConnect,

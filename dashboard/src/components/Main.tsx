@@ -58,7 +58,7 @@ export default function Main() {
       {/* Modals */}
       {isSmallViewport && <SmallViewport showSmallViewport={showSmallViewport} />}
       {appError && <ErrorDialog />}
-      {token && shouldShowConnect && <Connect closable={true} />}
+      {token && shouldShowConnect && <Connect />}
       {token && shouldShowDisconnect && <Disconnect />}
       <Navbar userPic={user?.picture ?? '' /* TODO: Default pic? */} />
       {!latestVersion ? (
