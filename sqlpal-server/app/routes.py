@@ -19,7 +19,6 @@ CORS(app, resources={
 app.config['CORS_HEADERS'] = 'Content-Type'
 
 load_dotenv()
-print(dotenv_values())
 openai.api_key = os.environ.get('OPENAI_API_KEY')
 
 
@@ -92,9 +91,7 @@ def add():
     if error:
         return error
 
-    if os.environ.get('INDEX_ENGINE') == 'FAISS':
-        index_engine = FaissEngine()
-
+    index_engine = select_index()
     embeddings = select_embeddings()
     docsearch = index_engine.read_index(db, embeddings)
     if docsearch is not None:
