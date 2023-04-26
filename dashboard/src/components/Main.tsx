@@ -11,12 +11,10 @@ import SmallViewport from '@/components/SmallViewport';
 import { align, Button, HBox } from '@/components/common';
 import ErrorDialog from '@/components/common/ErrorDialog';
 import { ActionType, useAppContext } from '@/components/providers/AppProvider';
-import { useAppConfigContext } from '@/components/providers/ConfigProvider';
 import { useAuth } from '@/hooks/useAuth';
 import { DatabaseIcon, PlusSmIcon } from '@heroicons/react/outline';
 
 export default function Main() {
-  const { config } = useAppConfigContext();
   const {
     dispatch,
     connString,
@@ -90,9 +88,9 @@ export default function Main() {
               </div>
             ) : (
               <>
-                {/* <div className='max-w-full mx-auto pt-4 sm:px-4 lg:px-6'>
+                <div className='max-w-full mx-auto pt-4 sm:px-4 lg:px-6'>
                   <DatabaseManagement />
-                </div> */}
+                </div>
                 <div className='max-w-full mx-auto py-2 sm:px-4 lg:px-6'>
                   <Query />
                 </div>

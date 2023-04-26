@@ -80,9 +80,8 @@ def autocomplete():
     else:
         return make_response(jsonify({'error': 'Error retrieving index'}), 500)
 
-
-@cross_origin(origin='http://localhost:9876', supports_credentials=True)
 @api_bp.route('/add', methods=['OPTIONS', 'POST'])
+@cross_origin(origin='http://localhost:9876', supports_credentials=True)
 def add():
     if request.method == 'OPTIONS':
         return make_response(jsonify({}), 200)

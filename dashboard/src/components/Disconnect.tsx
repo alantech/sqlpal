@@ -6,7 +6,7 @@ import { Button, Modal, Label, Spinner } from './common';
 import { ActionType, useAppContext } from './providers/AppProvider';
 
 export default function Disconnect() {
-  const { dispatch, token, selectedDb } = useAppContext();
+  const { dispatch, token, connString } = useAppContext();
 
   const [isDisconnecting, setIsDisconnecting] = useState(false);
 
@@ -20,26 +20,21 @@ export default function Disconnect() {
       {isDisconnecting ? (
         <>
           <Label>
-            Disconnecting IaSQL database <b>{selectedDb?.alias}</b>. None of the cloud resources in the
-            account will be deleted.
+            Disconnecting IaSQL database <b>{connString}</b>.
           </Label>
           <Spinner />
         </>
       ) : (
         <>
           <Label>
-            Are you sure you want to disconnect this account from IaSQL and remove the{' '}
-            <b>{selectedDb?.alias}</b> database? None of the cloud resources in the account will be deleted.
+            Are you sure you want to disconnect the <b>{connString}</b> database?
           </Label>
           <Button
             id='disconnect-modal'
             onClick={() => {
               dispatch({
-                action: ActionType.DisconnectDb,
+                action: ActionType.Disconnect,
                 token,
-                data: {
-                  dbAlias: selectedDb?.alias,
-                },
               });
               setIsDisconnecting(true);
             }}

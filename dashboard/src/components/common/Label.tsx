@@ -11,7 +11,7 @@ export default function Label({
 }) {
   if (!mode || mode === 'default') {
     return (
-      <label htmlFor={htmlFor} className='text-sm text-gray-500 my-3'>
+      <label htmlFor={htmlFor} className='text-sm text-gray-500 my-3 break-words'>
         {children}
       </label>
     );
@@ -21,7 +21,10 @@ export default function Label({
         <span className='shrink-0'>
           <ExclamationCircleIcon className='h-7 w-7 mx-2 text-warn' aria-hidden='true' />
         </span>
-        <label htmlFor={htmlFor} className='ml-2 max-w-2xl text-sm text-gray-900 dark:text-gray-100'>
+        <label
+          htmlFor={htmlFor}
+          className='ml-2 max-w-2xl text-sm text-gray-900 dark:text-gray-100 break-words'
+        >
           {children}
         </label>
       </div>
@@ -35,7 +38,7 @@ export default function Label({
         </span>
         <label
           htmlFor={htmlFor}
-          className='text-lg leading-6 font-medium text-gray-900 dark:text-gray-100 ml-2'
+          className='text-lg leading-6 font-medium text-gray-900 dark:text-gray-100 ml-2 break-words'
         >
           {children}
         </label>

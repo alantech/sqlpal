@@ -7,6 +7,7 @@
   "scripts": {
     "docker-build": "docker build --no-cache -t sqlpal:latest .",
     "docker-run": "docker-compose up",
+    "docker-run:detach": "docker-compose up -d",
     "docker-clean": "docker compose down"
   },
   "repository": {
