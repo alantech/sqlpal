@@ -1,15 +1,12 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 
-import { generateConnectionString, regions } from '@/services/connectDb';
 import { LinkIcon } from '@heroicons/react/outline';
 
-import ConnectionString from './ConnectionString';
-import { Combobox, Input, Label, Step, VBox, Wizard } from './common';
+import { Input, Label, Step, VBox, Wizard } from './common';
 import { ActionType, useAppContext } from './providers/AppProvider';
-import { useAppConfigContext } from './providers/ConfigProvider';
 
-export default function Connect({ closable }: { closable: boolean }) {
-  const { error, newDb, dispatch, token } = useAppContext();
+export default function Connect() {
+  const { dispatch } = useAppContext();
 
   const [connStr, SetConnStr] = useState('');
   const [stack, setStack] = useState(['addconn']);
@@ -18,7 +15,6 @@ export default function Connect({ closable }: { closable: boolean }) {
   let backEnabled = false;
   let closeButtonEnabled = true;
   const current = stack[stack.length - 1];
-  const { config } = useAppConfigContext();
 
   // Check relevant state per step to determine automatic actions to perform, such as deciding if
   // the Next button should be enabled or not
@@ -58,7 +54,7 @@ export default function Connect({ closable }: { closable: boolean }) {
         id='addconn'
         onFinish={() => {
           dispatch({ action: ActionType.ShowConnect, data: { showConnect: false } });
-          dispatch({ action: ActionType.SetConnStr, data: { connString: connStr } });
+          dispatch({ action: ActionType.SetConnString, data: { connString: connStr } });
         }}
       >
         <Label>
