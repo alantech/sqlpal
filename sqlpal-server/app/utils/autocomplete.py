@@ -5,6 +5,8 @@ from langchain.chains import RetrievalQA
 import os
 from langchain.chains.question_answering import load_qa_chain
 from langchain.chains.chat_vector_db.prompts import QA_PROMPT
+from pglast import parse_sql
+
 CUSTOM_TEMPLATE = os.environ.get('AUTOCOMPLETE_PROMPT', """
 You are an smart SQL assistant, capable of autocompleting SQL queries. You should autocomplete any queries with the specific guidelines:
 - write a syntactically correct query using {dialect}
@@ -125,8 +127,12 @@ def autocomplete_query(query, docsearch):
     else:
         queries = autocomplete_chat(query, docsearch)
 
-    final_query = queries[-1]
-    if (final_query.startswith("SELECT") or final_query.startswith("INSERT") or final_query.startswith("UPDATE") or final_query.startswith("DELETE")):
-        return final_query
-
-    return None
+    final_query = None
+    for q in queries:
+        try:
+            parse_sql(q)
+            final_query = q
+            break
+        except Exception as e:
+            print(e)
+    return final_query
