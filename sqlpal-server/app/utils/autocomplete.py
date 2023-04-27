@@ -6,6 +6,10 @@ import os
 from langchain.chains.question_answering import load_qa_chain
 from langchain.chains.chat_vector_db.prompts import QA_PROMPT
 from pglast import parse_sql
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 CUSTOM_TEMPLATE = os.environ.get('AUTOCOMPLETE_PROMPT', """
 You are an smart SQL assistant, capable of autocompleting SQL queries. You should autocomplete any queries with the specific guidelines:
@@ -134,5 +138,5 @@ def autocomplete_query(query, docsearch):
             final_query = q
             break
         except Exception as e:
-            print(e)
+            logger.exception(e)
     return final_query
