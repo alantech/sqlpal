@@ -1,9 +1,7 @@
 import re
-from langchain import HuggingFaceHub, OpenAI
+from langchain import OpenAI, PromptTemplate, LLMChain
 from langchain.chat_models import ChatOpenAI
-from langchain.chains import RetrievalQA
 import os
-from langchain.chains.question_answering import load_qa_chain
 from langchain.chains.chat_vector_db.prompts import QA_PROMPT
 from pglast import parse_sql, ast
 from .validate import validate_select, validate_insert, validate_update, validate_delete
@@ -23,6 +21,9 @@ You are an smart SQL assistant, capable of autocompleting SQL queries. You shoul
 - do not give errors on best practices such as avoiding SELECT *.
 - use comments on the query to try to figure out what the user is asking for, but do not reject the autocomplete if the comments are not perfect.
 - remember it is an autocomplete, always prepend the fragment of the query to the generated output.
+- only use the following tables:
+
+{table_info}
 
 Example:
 
@@ -36,100 +37,74 @@ Output: SELECT index, name FROM bucket WHERE region = 'us-east-1';
 Please continue the query with the following input:
 
 <<<
-{input}
+{query}
 >>>
 
 Output:
 """)
 
 
+def predict(llm, query, docsearch):
+    # different search types
+    if (os.environ.get('SEARCH_TYPE', 'similarity') == 'mmr'):
+        docs = docsearch.max_marginal_relevance_search(
+            query, k=int(os.environ.get('DOCS_TO_RETRIEVE', 5)))
+    else:
+        docs = docsearch.similarity_search(
+            query, k=int(os.environ.get('DOCS_TO_RETRIEVE', 5)))
+
+    prompt = PromptTemplate(
+        input_variables=["query", "table_info", "dialect"], template=CUSTOM_TEMPLATE)
+    llm_chain = LLMChain(llm=llm, prompt=prompt)
+    res = llm_chain.predict(table_info=docs, query=query, dialect='Postgres')
+    return res
+
+
 def autocomplete_chat(query, docsearch):
     llm = ChatOpenAI(temperature=os.environ.get('TEMPERATURE', 0.9),
-                     model_name=os.environ.get('LLM_MODEL', 'gpt-3.5-turbo'), n=os.environ.get('OPENAI_NUM_ANSWERS', 1))
-    # for the autocomplete case, stuff is the only possible value
-    chain = load_qa_chain(llm, chain_type="stuff", prompt=QA_PROMPT)
-
-    # different search types
-    if (os.environ.get('SEARCH_TYPE', 'similarity') == 'mmr'):
-        docs = docsearch.max_marginal_relevance_search(
-            query, k=os.environ.get('DOCS_TO_RETRIEVE', 5))
-    else:
-        docs = docsearch.similarity_search(
-            query, k=os.environ.get('DOCS_TO_RETRIEVE', 5))
-    query_str = CUSTOM_TEMPLATE.format(dialect="Postgres", input=query)
-
-    res = chain(
-        {"input_documents": docs, "question": query_str}, return_only_outputs=True
-    )
-    queries = re.split('; *\n', res["output_text"].strip())
+                     model_name=os.environ.get('LLM_MODEL', 'gpt-3.5-turbo'), n=int(os.environ.get('OPENAI_NUM_ANSWERS', 1)))
+    res = predict(llm, query, docsearch)
+    queries = re.split('; *\n', res.strip())
     return queries
 
 
-def autocomplete_retrieval(query, docsearch):
+def autocomplete_openai(query, docsearch):
     llm = OpenAI(temperature=os.environ.get('TEMPERATURE', 0.9),
-                 model_name=os.environ.get('LLM_MODEL', 'gpt-3.5-turbo'), n=os.environ.get('OPENAI_NUM_ANSWERS', 1))
-
-    retriever = docsearch.as_retriever(search_type=os.environ.get(
-        'SEARCH_TYPE', 'similarity'), search_kwargs={"k": os.environ.get('DOCS_TO_RETRIEVE', 5)})
-    qa = RetrievalQA.from_chain_type(
-        llm=llm, chain_type="stuff", retriever=retriever)
-    query_str = CUSTOM_TEMPLATE.format(dialect="Postgres", input=query)
-    res = qa({'query': query_str})
-    queries = re.split('; *\n', res["result"].strip())
-    return queries
-
-
-def autocomplete_llm(query, docsearch):
-    llm = OpenAI(temperature=os.environ.get('TEMPERATURE', 0.9),
-                 model_name=os.environ.get('LLM_MODEL', 'gpt-3.5-turbo'), n=os.environ.get('OPENAI_NUM_ANSWERS', 1))
-
-    # for the autocomplete case, stuff is the only possible value
-    chain = load_qa_chain(llm, chain_type="stuff", prompt=QA_PROMPT)
-    # different search types
-    if (os.environ.get('SEARCH_TYPE', 'similarity') == 'mmr'):
-        docs = docsearch.max_marginal_relevance_search(
-            query, k=os.environ.get('DOCS_TO_RETRIEVE', 5))
-    else:
-        docs = docsearch.similarity_search(
-            query, k=os.environ.get('DOCS_TO_RETRIEVE', 5))
-    query_str = CUSTOM_TEMPLATE.format(dialect="Postgres", input=query)
-
-    res = chain(
-        {"input_documents": docs, "question": query_str}, return_only_outputs=True
-    )
-    queries = re.split('; *\n', res["output_text"].strip())
+                 model_name=os.environ.get('LLM_MODEL', 'gpt-3.5-turbo'), n=int(os.environ.get('OPENAI_NUM_ANSWERS', 1)))
+    res = predict(llm, query, docsearch)
+    queries = re.split('; *\n', res.strip())
     return queries
 
 
 def autocomplete_huggingface(query, docsearch):
-    llm = HuggingFaceHub(repo_id=os.environ.get('LLM_MODEL', ''), model_kwargs={
-                         "temperature": os.environ.get('TEMPERATURE', 0.9), "max_length": os.environ.get('HUGGINGFACE_MAX_TOKENS', 64)})
-    chain = load_qa_chain(llm, chain_type="stuff", prompt=QA_PROMPT)
-    # different search types
-    if (os.environ.get('SEARCH_TYPE', 'similarity') == 'mmr'):
-        docs = docsearch.max_marginal_relevance_search(
-            query, k=os.environ.get('DOCS_TO_RETRIEVE', 5))
-    else:
-        docs = docsearch.similarity_search(
-            query, k=os.environ.get('DOCS_TO_RETRIEVE', 5))
-    query_str = CUSTOM_TEMPLATE.format(dialect="Postgres", input=query)
+    gpu = rh.cluster(ips=[os.environ.get('SSH_HOST', '')],
+                     ssh_creds={'ssh_user': os.environ.get(
+                         'SSH_USER', ''), 'ssh_private_key': os.environ.get('SSH_PRIVATE_KEY', '')},
+                     name='llm_host').save()
 
-    res = chain(
-        {"input_documents": docs, "question": query_str}, return_only_outputs=True
-    )
-    queries = re.split('; *\n', res["output_text"].strip())
+    llm = SelfHostedHuggingFaceLLM(model_id=os.environ.get('LLM_MODEL', ''), hardware=gpu, model_reqs=[
+                                   "pip:./", "transformers", "torch"], task="text2text-generation",)
+    res = predict(llm, query, docsearch)
+    queries = re.split('; *\n', res.strip())
+    return queries
+
+
+def autocomplete_llama(query, docsearch):
+    llm = LlamaCpp(model_path=os.environ.get('LLM_MODEL', ''), n_ctx=4096)
+    res = predict(llm, query, docsearch)
+    queries = re.split('; *\n', res.strip())
     return queries
 
 
 def autocomplete_query(query, docsearch, columns_by_table_dict):
     if os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'chat':
         queries = autocomplete_chat(query, docsearch)
-    elif os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'retrieval':
-        queries = autocomplete_retrieval(query, docsearch)
-    elif os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'llm':
-        queries = autocomplete_llm(query, docsearch)
+    elif os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'openai':
+        queries = autocomplete_openai(query, docsearch)
     elif os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'huggingface':
         queries = autocomplete_huggingface(query, docsearch)
+    elif os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'llama':
+        queries = autocomplete_llama(query, docsearch)
     else:
         queries = autocomplete_chat(query, docsearch)
 

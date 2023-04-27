@@ -26,8 +26,11 @@ The following options are possible:
 - USE_DATABASE - whether to store the index on the same db of the user or not. Only available for FAISS
 - DOCS_TO_RETRIEVE - the number of total documents to retrieve from the index, to be part of the autocomplete
 - EMBEDDING_METHOD - embedding engine used: openai, huggingface
-- AUTOCOMPLETE_METHOD - chat for OpenAI chat, retrieval for RetrievalQA
+- AUTOCOMPLETE_METHOD - chat, openai, huggingface, llama
 - AUTOCOMPLETE_PROMPT - custom prompt to pass to the system to generate the autocomplete
 - TEMPERATURE - the temperature for getting the autocomplete. Decimal between 0 and 1
 - HUGGINGFACE_MAX_TOKENS - the maximum tokens to retrieve in autocomplete. Defaults to 64
 - SEARCH_TYPE - type of search to use: similarity, mmr
+- SSH_HOST - ip of the user where to spin up self hosted LLM
+- SSH_USER - username to connect to hosted LLM
+- SSH_PRIVATE_KEY - private key used to connect to hosted LLM

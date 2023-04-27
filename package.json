@@ -5,10 +5,16 @@
   "license": "AGPL-3.0-only",
   "main": "dist/index.js",
   "scripts": {
-    "docker-build": "docker build --no-cache -t sqlpal:latest .",
+    "docker-build": "DOCKER_BUILDKIT=1 docker build -t sqlpal:latest .",
     "docker-run": "docker-compose up",
+<<<<<<< HEAD
     "docker-run:detach": "docker-compose up -d",
     "docker-clean": "docker compose down"
+=======
+    "docker-dev-run": "docker-compose -f ./docker-compose.dev.yml up",
+    "docker-clean": "docker compose down",
+    "docker-dev-clean": "docker compose -f ./docker-compose.dev.yml down"
+>>>>>>> 99373bc2 (feat: add support for runhouse)
   },
   "repository": {
     "type": "git",
