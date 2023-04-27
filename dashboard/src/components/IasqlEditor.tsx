@@ -43,14 +43,8 @@ export default function IasqlEditor() {
   }, []);
 
   const handleEditorContentUpdate = useCallback(
-    (content: string, event: any) => {
+    (content: string) => {
       editorRef?.current?.editor.commands.on('afterExec', eventData => {
-        // clean suggestions
-        // todo: DRY this
-        if (editorRef?.current?.editor?.suggestionNode) {
-          editorRef.current.editor.renderer?.scroller?.removeChild(editorRef.current.editor.suggestionNode);
-          editorRef.current.editor.suggestionNode = null;
-        }
         handleAfterExec(eventData);
       });
       dispatch({ action: ActionType.EditContent, data: { content } });
@@ -78,6 +72,15 @@ export default function IasqlEditor() {
     [dispatch, token],
   );
 
+  const clearSuggestions = () => {
+    const editor = editorRef.current?.editor;
+    if (!!editor?.ghostText) {
+      editor.setGhostText('', editor.getCursorPosition());
+      editor.ghostText = '';
+    }
+    dispatch({ action: ActionType.ResetSuggestion, data: { tabIdx: editorSelectedTab } });
+  };
+
   const onTabChange = (i: number) => {
     dispatch({
       action: ActionType.EditorSelectTab,
@@ -94,7 +97,7 @@ export default function IasqlEditor() {
 
   // Set up initial query in editor content
   useEffect(() => {
-    handleEditorContentUpdate(getInitialQuery(queryParams.get('sql')), null);
+    handleEditorContentUpdate(getInitialQuery(queryParams.get('sql')));
   }, [getInitialQuery, handleEditorContentUpdate, queryParams]);
 
   // Set up command to enable Ctrl-Enter runs
@@ -190,36 +193,14 @@ export default function IasqlEditor() {
   useEffect(() => {
     if (editorTabs[editorSelectedTab]?.suggestions?.length) {
       const suggestions = editorTabs[editorSelectedTab].suggestions;
-      // keep loggers here while we debug more later
       let editor = editorRef?.current?.editor;
-      let suggestionNode = editor?.suggestionNode;
       let shouldShow = !!suggestions.length;
-      console.log(`new suggestions? ${shouldShow}`);
-      let coord;
-      if (editor) {
-        console.log(editor.renderer.getScrollTop());
-        const pos = editor.getCursorPosition();
-        console.log(`pos: ${pos.row}, ${pos.column}`);
-        coord = editor.renderer.textToScreenCoordinates(pos.row, pos.column);
-        console.log(`coord: ${coord.pageX}, ${coord.pageY}`);
-      }
       if (editor && shouldShow) {
-        if (editor.suggestionNode) {
-          editor.renderer.scroller.removeChild(editor.suggestionNode);
-          editor.suggestionNode = null;
-        }
+        const currentPos = editor.getCursorPosition();
         const suggestionValue =
           suggestions.sort((a, b) => (a.score > b.score ? 1 : a.score < b.score ? -1 : 0))?.[0]?.value ?? '';
-        suggestionNode = editor.suggestionNode = document.createElement('div');
-        suggestionNode.textContent = suggestionValue;
-        suggestionNode.className = 'ace_suggestionMessage';
-        suggestionNode.style.padding = '0 9px';
-        suggestionNode.style.position = 'fixed';
-        suggestionNode.style.top = `${coord?.pageY ?? 0}px`;
-        suggestionNode.style.left = `${(coord?.pageX ?? 0) + 10}px`;
-        suggestionNode.style.zIndex = 9;
-        suggestionNode.style.opacity = 0.5;
-        editor?.renderer?.scroller?.appendChild(suggestionNode);
+        editor.ghostText = suggestionValue;
+        editor.setGhostText(`  ${suggestionValue}`, currentPos);
       }
     }
   }, [editorTabs]);
@@ -232,24 +213,20 @@ export default function IasqlEditor() {
         name: 'tabListener',
         bindKey: { win: 'Tab', mac: 'Tab' },
         exec: function () {
-          console.log(`executing tab listener`);
-          if (editor?.suggestionNode) {
+          if (!!editor?.ghostText) {
             // Check if it is a comment some we insert in the next line
-            const pos = editor.getCursorPosition();
-            const lineContent: string =
-              (editor?.session as any)?.getTextRange({ start: { row: pos.row, column: 0 }, end: pos }) ?? '';
+            const currentPos = editor.getCursorPosition();
+            const lineContent = editor?.session.getLine(currentPos.row) ?? '';
             // todo: generalize this to other comment types
             if (lineContent.startsWith('--')) {
-              editor.insert(`\n${editor.suggestionNode.textContent ?? ''}`);
+              editor.insert(`\n${editor.ghostText ?? ''}`);
             } else {
               // todo: do not replace the whole line, but only the text before the cursor or define a range. How to calculate it?
               // replace the text before the cursor with the suggestion
-              const range: any = { start: { row: pos.row, column: 0 }, end: pos };
-              editor.session.replace(range, editor.suggestionNode.textContent);
+              const range: any = { start: { row: currentPos.row, column: 0 }, end: currentPos };
+              editor.session.replace(range, editor.ghostText);
             }
-            editor.renderer?.scroller?.removeChild(editor?.suggestionNode);
-            editor.suggestionNode = null;
-            dispatch({ action: ActionType.ResetSuggestion, data: { tabIdx: editorSelectedTab } });
+            clearSuggestions();
           } else if (editor) {
             editor.insert(' '.repeat(editor?.getOptions().tabSize ?? 2));
           }
@@ -266,11 +243,9 @@ export default function IasqlEditor() {
         name: 'escapeListener',
         bindKey: { win: 'Esc', mac: 'Esc' },
         exec: function () {
-          console.log(`executing esc listener`);
-          if (editor?.suggestionNode) {
-            editor.renderer?.scroller?.removeChild(editor?.suggestionNode);
-            editor.suggestionNode = null;
-            dispatch({ action: ActionType.ResetSuggestion, data: { tabIdx: editorSelectedTab } });
+          if (!!editor?.ghostText) {
+            editor.setGhostText('', editor.getCursorPosition());
+            clearSuggestions();
           }
         },
       });
