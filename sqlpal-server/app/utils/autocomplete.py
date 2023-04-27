@@ -5,7 +5,8 @@ from langchain.chains import RetrievalQA
 import os
 from langchain.chains.question_answering import load_qa_chain
 from langchain.chains.chat_vector_db.prompts import QA_PROMPT
-from pglast import parse_sql
+from pglast import parse_sql, ast
+from .validate import validate_select
 import logging
 
 logger = logging.getLogger(__name__)
@@ -119,7 +120,7 @@ def autocomplete_huggingface(query, docsearch):
     return queries
 
 
-def autocomplete_query(query, docsearch):
+def autocomplete_query(query, docsearch, columns_by_table_dict):
     if os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'chat':
         queries = autocomplete_chat(query, docsearch)
     elif os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'retrieval':
@@ -134,9 +135,27 @@ def autocomplete_query(query, docsearch):
     final_query = None
     for q in queries:
         try:
-            parse_sql(q)
-            final_query = q
-            break
+            parsed_query_stmt = parse_sql(q)
+            is_valid = True
+            # for s in [ st for st in parsed_query_stmt ]:
+            for s in parsed_query_stmt:
+                print('trying to validate')
+                print(str(s))
+                print(isinstance(s.stmt, ast.SelectStmt))
+                if isinstance(s.stmt, ast.SelectStmt):
+                    is_valid = validate_select(s.stmt, columns_by_table_dict)
+                # elif isinstance(s, ast.InsertStmt):
+                #     validate_insert(s)
+                # elif isinstance(s, ast.UpdateStmt):
+                #     validate_update(s)
+                # elif isinstance(s, ast.DeleteStmt):
+                #     validate_delete(s)
+            if is_valid:
+                print('VALID QUERY')
+                final_query = q
+                break
+            print('NOT A VALID QUERY :(')
+
         except Exception as e:
             logger.exception(e)
     return final_query
