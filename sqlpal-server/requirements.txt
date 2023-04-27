@@ -9,3 +9,4 @@ flask_session
 chromadb
 openai
 huggingface_hub
+pglast==5.1
