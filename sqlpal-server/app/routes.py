@@ -1,13 +1,13 @@
 from flask import Blueprint, Flask, jsonify, make_response, request
 from flask_cors import CORS, cross_origin
-from dotenv import load_dotenv, dotenv_values
+from dotenv import load_dotenv
 import os
 import openai
 from .utils.embeddings import select_embeddings
 from .utils.autocomplete import autocomplete_query
-from .utils.indexes import FaissEngine, select_index
+from .utils.indexes import select_index
 
-from .utils import connect_to_db
+from .utils import connect_to_db, get_db_columns_by_table
 import logging
 
 logger = logging.getLogger(__name__)
@@ -68,11 +68,12 @@ def autocomplete():
 
     embeddings = select_embeddings()
     docsearch = index_engine.read_index(db, embeddings)
+    columns_by_table_dict = get_db_columns_by_table(db)
     if docsearch is not None:
         query = request.json.get('query', None)
         if query:
             # execute query autocompletion
-            result = autocomplete_query(query, docsearch)
+            result = autocomplete_query(query, docsearch, columns_by_table_dict)
             response = jsonify({'output_text': result})
             return response
         else:
