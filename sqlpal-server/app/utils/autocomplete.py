@@ -6,7 +6,7 @@ import os
 from langchain.chains.question_answering import load_qa_chain
 from langchain.chains.chat_vector_db.prompts import QA_PROMPT
 from pglast import parse_sql, ast
-from .validate import validate_select, validate_insert
+from .validate import validate_select, validate_insert, validate_update
 import logging
 
 logger = logging.getLogger(__name__)
@@ -145,10 +145,10 @@ def autocomplete_query(query, docsearch, columns_by_table_dict):
                     is_valid = validate_select(stmt, columns_by_table_dict)
                 elif isinstance(stmt, ast.InsertStmt):
                     is_valid = validate_insert(stmt, columns_by_table_dict)
-                # elif isinstance(stmt, ast.UpdateStmt):
-                #     validate_update(stmt)
+                elif isinstance(stmt, ast.UpdateStmt):
+                    is_valid = validate_update(stmt, columns_by_table_dict)
                 # elif isinstance(stmt, ast.DeleteStmt):
-                #     validate_delete(stmt)
+                #   is_valid = validate_delete(stmt, columns_by_table_dict)
             if is_valid:
                 print('VALID QUERY')
                 final_query = q
