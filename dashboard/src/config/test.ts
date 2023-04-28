@@ -6,7 +6,7 @@ const test: ConfigInterface = {
     pgHost: 'localhost',
     pgForceSsl: false,
     backendUrl: '/api/run',
-    palServerUrl: 'http://localhost:8080',
+    palServerUrl: 'http://localhost:8088',
   },
 };
 

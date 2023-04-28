@@ -8,7 +8,7 @@ services:
       - .env
     ports:
       - "9876:9876"
-      - "8080:8080"
+      - "8088:8088"
     tmpfs:
       - /tmp/indexes
     container_name: sqlpal
