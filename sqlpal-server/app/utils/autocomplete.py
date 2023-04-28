@@ -87,7 +87,7 @@ def extract_queries_from_result(result):
         # Check if inside a query
         elif inside_query:
             # Append line to current query
-            current_query += line
+            current_query += ' ' + line
 
             # Check if query ends with semicolon
             if re.search(';\s*$', current_query):
@@ -186,6 +186,9 @@ def autocomplete_query(query, docsearch, columns_by_table_dict):
         queries = autocomplete_selfhosted(query, docsearch)
     else:
         queries = autocomplete_chat(query, docsearch)
+
+    logger.info("Returned queries are: ")
+    logger.info(queries)
 
     final_query = None
     for q in queries:
