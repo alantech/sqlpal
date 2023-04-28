@@ -159,8 +159,6 @@ def autocomplete_selfhosted(query, docsearch):
             result = response.json()['results'][0]['text']
 
             # cut the result on the first stopper
-            print(result)
-
             try:
                 index = result.index('###')
                 result = result[:index].strip()
