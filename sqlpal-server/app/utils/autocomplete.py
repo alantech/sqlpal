@@ -6,7 +6,7 @@ import os
 from langchain.chains.question_answering import load_qa_chain
 from langchain.chains.chat_vector_db.prompts import QA_PROMPT
 from pglast import parse_sql, ast
-from .validate import validate_select
+from .validate import validate_select, validate_insert
 import logging
 
 logger = logging.getLogger(__name__)
@@ -139,17 +139,16 @@ def autocomplete_query(query, docsearch, columns_by_table_dict):
             is_valid = True
             # for s in [ st for st in parsed_query_stmt ]:
             for s in parsed_query_stmt:
+                stmt = s.stmt
                 print('trying to validate')
-                print(str(s))
-                print(isinstance(s.stmt, ast.SelectStmt))
-                if isinstance(s.stmt, ast.SelectStmt):
-                    is_valid = validate_select(s.stmt, columns_by_table_dict)
-                # elif isinstance(s, ast.InsertStmt):
-                #     validate_insert(s)
-                # elif isinstance(s, ast.UpdateStmt):
-                #     validate_update(s)
-                # elif isinstance(s, ast.DeleteStmt):
-                #     validate_delete(s)
+                if isinstance(stmt, ast.SelectStmt):
+                    is_valid = validate_select(stmt, columns_by_table_dict)
+                elif isinstance(stmt, ast.InsertStmt):
+                    is_valid = validate_insert(stmt, columns_by_table_dict)
+                # elif isinstance(stmt, ast.UpdateStmt):
+                #     validate_update(stmt)
+                # elif isinstance(stmt, ast.DeleteStmt):
+                #     validate_delete(stmt)
             if is_valid:
                 print('VALID QUERY')
                 final_query = q

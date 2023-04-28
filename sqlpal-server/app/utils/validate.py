@@ -28,3 +28,13 @@ def validate_select(stmt, columns_by_table_dict):
     # todo: validate order by clause to see if they are valid columns
 
     return True
+
+def validate_insert(stmt, columns_by_table_dict):
+    if stmt.relation is not None:
+        table_name = stmt.relation.relname
+        if table_name not in columns_by_table_dict:
+            return False
+        for rt in stmt.cols:
+            if rt.name not in columns_by_table_dict[table_name]:
+                return False
+    return True
