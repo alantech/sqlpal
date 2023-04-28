@@ -8,12 +8,13 @@ services:
       - .env
     ports:
       - "9876:9876"
-      - "5001:5001"
+      - "8080:8080"
     tmpfs:
       - /tmp/indexes
     container_name: sqlpal
   db:
     container_name: test_db
+    hostname: localdb
     image: postgres:latest
     ports:
       - "5432:5432"
