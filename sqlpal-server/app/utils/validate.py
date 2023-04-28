@@ -4,14 +4,16 @@ def validate_select(stmt, columns_by_table_dict):
     # todo: improve this later. for now just check is a valid column in the schema. Then we can check if the column is valid for the table, but for that we would need to dig deeper in the ast
     columns = [col for table in columns_by_table_dict for col in columns_by_table_dict[table]]
     # validate target list to see if they are valid columns
-    for f in [f for rt in stmt.targetList for f in rt.val.fields]:
-        if f.sval not in columns:
-            return False
+    if stmt.targetList is None:
+      for f in [f for rt in stmt.targetList for f in rt.val.fields]:
+          if f.sval not in columns:
+              return False
 
     # validate from clause to see if they are valid tables
-    for rv in stmt.fromClause:
-        if rv.relname not in columns_by_table_dict:
-            return False
+    if stmt.fromClause is None:
+      for rv in stmt.fromClause:
+          if rv.relname not in columns_by_table_dict:
+              return False
 
     # validate where clause to see if they are valid columns
     if stmt.whereClause is not None and isinstance(stmt.whereClause.lexpr, ast.ColumnRef) and stmt.whereClause.lexpr.fields[0].sval not in columns:
