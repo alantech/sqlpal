@@ -1,22 +1,19 @@
 import logging
 import re
+import sys
+import requests
 from requests.auth import HTTPBasicAuth
 from langchain import OpenAI, PromptTemplate, LLMChain
 from langchain.chat_models import ChatOpenAI
 import os
 from langchain.chains.chat_vector_db.prompts import QA_PROMPT
-<<<<<<< HEAD
 from pglast import parse_sql, ast
 from .validate import validate_select, validate_insert, validate_update, validate_delete
 import logging
 
 logger = logging.getLogger(__name__)
-
-=======
-import requests
-
-logger = logging.getLogger(__name__)
->>>>>>> bf36af22 (feat: call self hosted using just an api)
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+logger.setLevel(logging.INFO)
 
 CUSTOM_TEMPLATE = os.environ.get('AUTOCOMPLETE_PROMPT', """
 You are an smart SQL assistant, capable of autocompleting SQL queries. You should autocomplete any queries with the specific guidelines:
@@ -65,6 +62,8 @@ def predict(llm, query, docsearch):
         input_variables=["query", "table_info", "dialect"], template=CUSTOM_TEMPLATE)
     llm_chain = LLMChain(llm=llm, prompt=prompt)
     res = llm_chain.predict(table_info=docs, query=query, dialect='Postgres')
+    logger.info("Result from LLM: "+res)
+
     return res
 
 
@@ -96,6 +95,10 @@ def extract_queries_from_result(result):
                 queries.append(current_query.strip())
                 current_query = ''
                 inside_query = False
+
+    # If there is only one query and it is not multiline, add it to the list
+    if current_query and ';' in current_query:
+        queries.append(current_query.strip())
 
     # Return list of SQL queries
     return queries
@@ -157,6 +160,7 @@ def autocomplete_selfhosted(query, docsearch):
             os.environ.get('LLM_USER', ''), os.environ.get('LLM_PASSWORD', '')))
         if response.status_code == 200:
             result = response.json()['results'][0]['text']
+            logger.info("Result from LLM: "+result)
 
             # cut the result on the first stopper
             try:
