@@ -1,14 +1,22 @@
+import logging
 import re
+from requests.auth import HTTPBasicAuth
 from langchain import OpenAI, PromptTemplate, LLMChain
 from langchain.chat_models import ChatOpenAI
 import os
 from langchain.chains.chat_vector_db.prompts import QA_PROMPT
+<<<<<<< HEAD
 from pglast import parse_sql, ast
 from .validate import validate_select, validate_insert, validate_update, validate_delete
 import logging
 
 logger = logging.getLogger(__name__)
 
+=======
+import requests
+
+logger = logging.getLogger(__name__)
+>>>>>>> bf36af22 (feat: call self hosted using just an api)
 
 CUSTOM_TEMPLATE = os.environ.get('AUTOCOMPLETE_PROMPT', """
 You are an smart SQL assistant, capable of autocompleting SQL queries. You should autocomplete any queries with the specific guidelines:
@@ -60,12 +68,45 @@ def predict(llm, query, docsearch):
     return res
 
 
+def extract_queries_from_result(result):
+    lines = result.split('\n')
+
+    # Initialize list to store SQL queries
+    queries = []
+
+    # Initialize variables to track current query
+    current_query = ''
+    inside_query = False
+
+    # Loop through each line
+    for line in lines:
+        # Check if line starts with a SQL keyword
+        if re.match('^\s*(SELECT|INSERT|UPDATE|DELETE)', line, re.IGNORECASE):
+            # Start a new query
+            current_query = line
+            inside_query = True
+        # Check if inside a query
+        elif inside_query:
+            # Append line to current query
+            current_query += line
+
+            # Check if query ends with semicolon
+            if re.search(';\s*$', current_query):
+                # Add query to list and reset variables
+                queries.append(current_query.strip())
+                current_query = ''
+                inside_query = False
+
+    # Return list of SQL queries
+    return queries
+
+
 def autocomplete_chat(query, docsearch):
     llm = ChatOpenAI(temperature=os.environ.get('TEMPERATURE', 0.9),
                      model_name=os.environ.get('LLM_MODEL', 'gpt-3.5-turbo'), n=int(os.environ.get('OPENAI_NUM_ANSWERS', 1)))
     res = predict(llm, query, docsearch)
-    queries = re.split('; *\n', res.strip())
-    return queries
+    final_queries = extract_queries_from_result(res)
+    return final_queries
 
 
 def autocomplete_openai(query, docsearch):
@@ -76,24 +117,62 @@ def autocomplete_openai(query, docsearch):
     return queries
 
 
-def autocomplete_huggingface(query, docsearch):
-    gpu = rh.cluster(ips=[os.environ.get('SSH_HOST', '')],
-                     ssh_creds={'ssh_user': os.environ.get(
-                         'SSH_USER', ''), 'ssh_private_key': os.environ.get('SSH_PRIVATE_KEY', '')},
-                     name='llm_host').save()
+def autocomplete_selfhosted(query, docsearch):
+    # different search types
+    if (os.environ.get('SEARCH_TYPE', 'similarity') == 'mmr'):
+        docs = docsearch.max_marginal_relevance_search(
+            query, k=int(os.environ.get('DOCS_TO_RETRIEVE', 5)))
+    else:
+        docs = docsearch.similarity_search(
+            query, k=int(os.environ.get('DOCS_TO_RETRIEVE', 5)))
 
-    llm = SelfHostedHuggingFaceLLM(model_id=os.environ.get('LLM_MODEL', ''), hardware=gpu, model_reqs=[
-                                   "pip:./", "transformers", "torch"], task="text2text-generation",)
-    res = predict(llm, query, docsearch)
-    queries = re.split('; *\n', res.strip())
-    return queries
+    prompt = PromptTemplate(
+        input_variables=["query", "table_info", "dialect"], template=CUSTOM_TEMPLATE)
+    query = prompt.format(query=query, table_info=docs, dialect='Postgres')
 
+    # issue a request to an external API
+    request = {
+        'prompt': query,
+        'temperature': int(os.environ.get('TEMPERATURE', 1.3)),
+        'top_p': 0.1,
+        'typical_p': 1,
+        'repetition_penalty': 1.18,
+        'top_k': 40,
+        'min_length': 0,
+        'no_repeat_ngram_size': 0,
+        'num_beams': 1,
+        'penalty_alpha': 0,
+        'length_penalty': 1,
+        'early_stopping': False,
+        'seed': -1,
+        'add_bos_token': True,
+        'truncation_length': 2048,
+        'ban_eos_token': False,
+        'skip_special_tokens': True,
+        'stopping_strings': []
+    }
 
-def autocomplete_llama(query, docsearch):
-    llm = LlamaCpp(model_path=os.environ.get('LLM_MODEL', ''), n_ctx=4096)
-    res = predict(llm, query, docsearch)
-    queries = re.split('; *\n', res.strip())
-    return queries
+    try:
+        response = requests.post(os.environ.get('LLM_HOST', ''), json=request, auth=HTTPBasicAuth(
+            os.environ.get('LLM_USER', ''), os.environ.get('LLM_PASSWORD', '')))
+        if response.status_code == 200:
+            result = response.json()['results'][0]['text']
+
+            # cut the result on the first stopper
+            print(result)
+
+            try:
+                index = result.index('###')
+                result = result[:index].strip()
+            except:
+                pass
+
+            final_queries = extract_queries_from_result(result)
+            return final_queries
+    except Exception as e:
+        logger.exception("Error in autocomplete_selfhosted: "+e)
+
+    return None
 
 
 def autocomplete_query(query, docsearch, columns_by_table_dict):
@@ -101,10 +180,8 @@ def autocomplete_query(query, docsearch, columns_by_table_dict):
         queries = autocomplete_chat(query, docsearch)
     elif os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'openai':
         queries = autocomplete_openai(query, docsearch)
-    elif os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'huggingface':
-        queries = autocomplete_huggingface(query, docsearch)
-    elif os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'llama':
-        queries = autocomplete_llama(query, docsearch)
+    elif os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'selfhosted':
+        queries = autocomplete_selfhosted(query, docsearch)
     else:
         queries = autocomplete_chat(query, docsearch)
 
