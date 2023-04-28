@@ -137,10 +137,8 @@ def autocomplete_query(query, docsearch, columns_by_table_dict):
         try:
             parsed_query_stmt = parse_sql(q)
             is_valid = True
-            # for s in [ st for st in parsed_query_stmt ]:
             for s in parsed_query_stmt:
                 stmt = s.stmt
-                print('trying to validate')
                 if isinstance(stmt, ast.SelectStmt):
                     is_valid = validate_select(stmt, columns_by_table_dict)
                 elif isinstance(stmt, ast.InsertStmt):
@@ -150,10 +148,8 @@ def autocomplete_query(query, docsearch, columns_by_table_dict):
                 elif isinstance(stmt, ast.DeleteStmt):
                     is_valid = validate_delete(stmt, columns_by_table_dict)
             if is_valid:
-                print('VALID QUERY')
                 final_query = q
                 break
-            print('NOT A VALID QUERY :(')
 
         except Exception as e:
             logger.exception(e)
