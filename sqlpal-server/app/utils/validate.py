@@ -16,10 +16,8 @@ def validate_select(stmt, columns_by_table_dict):
               return False
 
     # validate where clause to see if they are valid columns
-    if stmt.whereClause is not None and isinstance(stmt.whereClause.lexpr, ast.ColumnRef) and stmt.whereClause.lexpr.fields[0].sval not in columns:
-      return False
-    elif stmt.whereClause is not None and isinstance(stmt.whereClause.rexpr, ast.ColumnRef) and stmt.whereClause.rexpr.fields[0].sval not in columns:
-      return False
+    if not _is_valid_where_clause(stmt.whereClause, columns):
+        return False
 
     # todo: validate group by clause to see if they are valid columns
     # todo: validate having clause to see if they are valid columns
@@ -49,9 +47,7 @@ def validate_update(stmt, columns_by_table_dict):
     # Checking WHERE clause
     # todo: improve this later. for now just check is a valid column in the schema. Then we can check if the column is valid for the table, but for that we would need to dig deeper in the ast
     columns = [col for table in columns_by_table_dict for col in columns_by_table_dict[table]]
-    if stmt.whereClause is not None and isinstance(stmt.whereClause.lexpr, ast.ColumnRef) and stmt.whereClause.lexpr.fields[0].sval not in columns:
-        return False
-    elif stmt.whereClause is not None and isinstance(stmt.whereClause.rexpr, ast.ColumnRef) and stmt.whereClause.rexpr.fields[0].sval not in columns:
+    if not _is_valid_where_clause(stmt.whereClause, columns):
         return False
     return True
 
@@ -63,8 +59,13 @@ def validate_delete(stmt, columns_by_table_dict):
     # Checking WHERE clause
     # todo: improve this later. for now just check is a valid column in the schema. Then we can check if the column is valid for the table, but for that we would need to dig deeper in the ast
     columns = [col for table in columns_by_table_dict for col in columns_by_table_dict[table]]
-    if stmt.whereClause is not None and isinstance(stmt.whereClause.lexpr, ast.ColumnRef) and stmt.whereClause.lexpr.fields[0].sval not in columns:
+    if not _is_valid_where_clause(stmt.whereClause, columns):
         return False
-    elif stmt.whereClause is not None and isinstance(stmt.whereClause.rexpr, ast.ColumnRef) and stmt.whereClause.rexpr.fields[0].sval not in columns:
+    return True
+
+def _is_valid_where_clause(clause, columns):
+    if clause is not None and isinstance(clause.lexpr, ast.ColumnRef) and clause.lexpr.fields[0].sval not in columns:
+        return False
+    elif clause is not None and isinstance(clause.rexpr, ast.ColumnRef) and clause.rexpr.fields[0].sval not in columns:
         return False
     return True
