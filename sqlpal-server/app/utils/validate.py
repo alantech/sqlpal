@@ -22,9 +22,7 @@ def validate_select(stmt, columns_by_table_dict):
       return False
 
     # todo: validate group by clause to see if they are valid columns
-
     # todo: validate having clause to see if they are valid columns
-
     # todo: validate order by clause to see if they are valid columns
 
     return True
