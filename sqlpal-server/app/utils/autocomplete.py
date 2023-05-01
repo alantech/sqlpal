@@ -5,11 +5,19 @@ from langchain.chains import RetrievalQA
 import os
 from langchain.chains.question_answering import load_qa_chain
 from langchain.chains.chat_vector_db.prompts import QA_PROMPT
+from pglast import parse_sql, ast
+from .validate import validate_select, validate_insert, validate_update, validate_delete
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 CUSTOM_TEMPLATE = os.environ.get('AUTOCOMPLETE_PROMPT', """
 You are an smart SQL assistant, capable of autocompleting SQL queries. You should autocomplete any queries with the specific guidelines:
 - write a syntactically correct query using {dialect}
 - unless the user specifies in his question a specific number of examples he wishes to obtain, do not limit the results. You can order the results by a relevant column to return the most interesting examples in the database.
 - never query for all the columns from a specific table, only ask for a the few relevant columns given the question.
+- if need to return a placeholder for a value, return it following the column data type.
 - pay attention to use only table names, columns and indexes that you can see in the schema description. Be careful to not query for columns that do not exist. Also, pay attention to which column is in which table and the data type of the columns.
 - try to use SELECT, INSERT, UPDATE or DELETE operations depending on the desired action. Use JOIN or subselects to query information from different tables.
 - do not give errors on best practices such as avoiding SELECT *.
@@ -113,7 +121,7 @@ def autocomplete_huggingface(query, docsearch):
     return queries
 
 
-def autocomplete_query(query, docsearch):
+def autocomplete_query(query, docsearch, columns_by_table_dict):
     if os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'chat':
         queries = autocomplete_chat(query, docsearch)
     elif os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'retrieval':
@@ -125,8 +133,25 @@ def autocomplete_query(query, docsearch):
     else:
         queries = autocomplete_chat(query, docsearch)
 
-    final_query = queries[-1]
-    if (final_query.startswith("SELECT") or final_query.startswith("INSERT") or final_query.startswith("UPDATE") or final_query.startswith("DELETE")):
-        return final_query
+    final_query = None
+    for q in queries:
+        try:
+            parsed_query_stmt = parse_sql(q)
+            is_valid = True
+            for s in parsed_query_stmt:
+                stmt = s.stmt
+                if isinstance(stmt, ast.SelectStmt):
+                    is_valid = validate_select(stmt, columns_by_table_dict)
+                elif isinstance(stmt, ast.InsertStmt):
+                    is_valid = validate_insert(stmt, columns_by_table_dict)
+                elif isinstance(stmt, ast.UpdateStmt):
+                    is_valid = validate_update(stmt, columns_by_table_dict)
+                elif isinstance(stmt, ast.DeleteStmt):
+                    is_valid = validate_delete(stmt, columns_by_table_dict)
+            if is_valid:
+                final_query = q
+                break
 
-    return None
+        except Exception as e:
+            logger.exception(e)
+    return final_query

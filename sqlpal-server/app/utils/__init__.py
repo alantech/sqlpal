@@ -38,3 +38,11 @@ def connect_to_db(request):
             return None, make_response(jsonify({'error': 'Could not connect to database'}), 500)
     else:
         return None, make_response(jsonify({'error': 'No connection string provided'}), 400)
+
+def get_db_columns_by_table(db: SQLDatabase):
+    tables = db.get_usable_table_names()
+    columns_by_table = {}
+    for table in tables:
+        columns = [ col.name for tbl in db._metadata.sorted_tables for col in tbl.columns if tbl.name == table ]
+        columns_by_table[table] = columns
+    return columns_by_table
