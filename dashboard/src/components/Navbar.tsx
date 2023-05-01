@@ -17,13 +17,11 @@ export default function Navbar({ userPic }: { userPic: string }) {
   const { config } = useAppConfigContext();
   const { token, isDarkMode, dispatch } = useAppContext();
   const { logout } = useAuth0();
-  const homeUrl = 'https://iasql.com';
-  const navigation = [
-    { name: 'Docs', href: 'https://iasql.com/docs', current: false },
-    { name: 'Discord', href: 'https://discord.com/invite/machGGczea', current: false },
+  const homeUrl = 'https://sqlpal.ai';
+  const navigation: any[] = [
   ];
   return (
-    <Disclosure as='nav' className='bg-gray-800'>
+    <Disclosure as='nav' className='bg-gray-600'>
       {({ open }) => (
         <>
           <div className='max-w-full mx-auto px-2 sm:px-4 lg:px-6'>
