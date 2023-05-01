@@ -23,7 +23,7 @@ FROM build AS dashboard-stage
 WORKDIR /dashboard
 
 ## Install stage dependencies
-COPY dashboard/package.json dashboard/yarn.lock ./
+COPY dashboard/.yarnrc dashboard/package.json dashboard/yarn.lock ./
 RUN yarn install --frozen-lockfile
 
 ## Copy files
@@ -83,7 +83,7 @@ ARG DB_USER=postgres
 ENV DB_USER=$DB_USER
 ARG DB_PASSWORD=test
 ENV DB_PASSWORD=$DB_PASSWORD
-ARG AUTOCOMPLETE_ENDPOINT=http://localhost:5000
+ARG AUTOCOMPLETE_ENDPOINT=http://localhost:8088
 ENV AUTOCOMPLETE_ENDPOINT=
 
 ## Ports
