@@ -41,6 +41,7 @@ def discover():
     texts = []
     for table in tables:
         info = db.get_table_info(table_names=[table])
+        info = info.replace('\t', ' ').replace('\n', ' ')
         texts.append(info)
 
     # add to a vector search using embeddings
@@ -73,13 +74,15 @@ def autocomplete():
         query = request.json.get('query', None)
         if query:
             # execute query autocompletion
-            result = autocomplete_query(query, docsearch, columns_by_table_dict)
+            result = autocomplete_query(
+                query, docsearch, columns_by_table_dict)
             response = jsonify({'output_text': result})
             return response
         else:
             return make_response(jsonify({'error': 'No query provided'}), 400)
     else:
         return make_response(jsonify({'error': 'Error retrieving index'}), 500)
+
 
 @api_bp.route('/add', methods=['OPTIONS', 'POST'])
 @cross_origin(origin='http://localhost:9876', supports_credentials=True)

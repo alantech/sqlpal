@@ -26,27 +26,13 @@ You are an smart SQL assistant, capable of autocompleting SQL queries. You shoul
 - do not give errors on best practices such as avoiding SELECT *.
 - use comments on the query to try to figure out what the user is asking for, but do not reject the autocomplete if the comments are not perfect.
 - remember it is an autocomplete, always prepend the fragment of the query to the generated output.
-- only use the following tables:
+- you only can use tables and columns defined in this schema:
 
 {table_info}
 
-Example:
+Please autocomplete the following SQL fragment: {query}
 
-<<<
-# generate a list of buckets in my region
-SELECT i
->>>
-
-Output: SELECT index, name FROM bucket WHERE region = 'us-east-1';
-
-Please continue the query with the following input:
-
-<<<
-{query}
->>>
-
-Output:
-""")
+Desired format: <valid sql query>""")
 
 
 def predict(llm, query, docsearch):
@@ -79,26 +65,39 @@ def extract_queries_from_result(result):
 
     # Loop through each line
     for line in lines:
-        # Check if line starts with a SQL keyword
-        if re.match('^\s*(SELECT|INSERT|UPDATE|DELETE)', line, re.IGNORECASE):
-            # Start a new query
-            current_query = line
+        # Check if line contains a SQL keyword
+        pattern = r"(?i)\b(SELECT|INSERT|UPDATE|DELETE)\b"
+        match = re.search(pattern, line)
+        if match:
+            index = match.start()
+            line = line[index:]
+            # find the pos of the query
             inside_query = True
-        # Check if inside a query
-        elif inside_query:
+
+        if inside_query:
             # Append line to current query
             current_query += ' ' + line
 
-            # Check if query ends with semicolon
-            if re.search(';\s*$', current_query):
-                # Add query to list and reset variables
-                queries.append(current_query.strip())
+            # Check if query has a semicolon and get the position
+            position = current_query.find(';')
+            if position != -1:
+                stripped_query = current_query[:position + 1]
+                stripped_query = stripped_query.replace('\\', '')
+
+                queries.append(stripped_query.strip())
+
                 current_query = ''
                 inside_query = False
 
     # If there is only one query and it is not multiline, add it to the list
-    if current_query and ';' in current_query:
-        queries.append(current_query.strip())
+    if current_query:
+        # strip the query until ;
+        position = current_query.find(';')
+        if position != -1:
+            stripped_query = current_query[:position + 1]
+            stripped_query = stripped_query.replace('\\', '')
+
+            queries.append(stripped_query.strip())
 
     # Return list of SQL queries
     return queries
@@ -136,7 +135,7 @@ def autocomplete_selfhosted(query, docsearch):
     # issue a request to an external API
     request = {
         'prompt': query,
-        'temperature': int(os.environ.get('TEMPERATURE', 1.3)),
+        'temperature': float(os.environ.get('TEMPERATURE', 1.3)),
         'top_p': 0.1,
         'typical_p': 1,
         'repetition_penalty': 1.18,
@@ -161,14 +160,6 @@ def autocomplete_selfhosted(query, docsearch):
         if response.status_code == 200:
             result = response.json()['results'][0]['text']
             logger.info("Result from LLM: "+result)
-
-            # cut the result on the first stopper
-            try:
-                index = result.index('###')
-                result = result[:index].strip()
-            except:
-                pass
-
             final_queries = extract_queries_from_result(result)
             return final_queries
     except Exception as e:
