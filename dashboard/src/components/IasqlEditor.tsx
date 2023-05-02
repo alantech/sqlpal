@@ -29,7 +29,7 @@ const ForwardRefEditor = forwardRef((props: IAceEditorProps, ref: any) => (
 ForwardRefEditor.displayName = 'ForwardRefEditor';
 
 export default function IasqlEditor() {
-  const { dispatch, isDarkMode, token, editorTabs, editorSelectedTab, forceRun, connString } =
+  const { dispatch, isDarkMode, token, editorTabs, editorSelectedTab, forceRun, connString, schema } =
     useAppContext();
   const editorRef = useRef(null as null | ReactAce);
   const prevTabsLenRef = useRef(null as null | number);
@@ -135,9 +135,37 @@ export default function IasqlEditor() {
   }, []);
 
   useEffect(() => {
-    // For now just reset completers
-    if (editorRef?.current?.editor?.completers) editorRef.current.editor.completers = [];
-  }, []);
+    if (editorRef?.current?.editor?.completers.length) {
+      // Reset completers
+      editorRef.current.editor.completers = [];
+      // Add custom completer
+      editorRef?.current?.editor?.completers?.push({
+        getCompletions: (_editor: any, _session: any, _pos: any, _prefix: any, callback: any) => {
+          const completions: any[] = [];
+          // we can use session and pos here to decide what we are going to show
+          const autoCompleteSqlPalKeywords = [
+            // Table Names
+            ...Object.keys(schema ?? {}).map(value => ({ value, meta: 'table', score: 200 })),
+            // Column Names
+            ...Object.entries(schema ?? [])
+              .map(([tbl, val]) =>
+                Object.keys(val).map((col, i) => ({
+                  caption: `${tbl}.${col}`,
+                  value: col,
+                  meta: 'field',
+                  score: 100 - i,
+                })),
+              )
+              .flat(),
+          ];
+          autoCompleteSqlPalKeywords?.forEach(completion => {
+            completions.push(completion);
+          });
+          callback(null, completions);
+        },
+      });
+    }
+  }, [schema, editorRef?.current?.editor]);
 
   useEffect(() => {
     if (editorTabs.length !== prevTabsLenRef.current) {
@@ -162,8 +190,6 @@ export default function IasqlEditor() {
 
   const handleAfterExec = debounce((eventData: any) => {
     if (eventData.command.name === 'insertstring') {
-      console.log('User typed a character: ' + eventData.args);
-
       // check if latest characters typed have been space, tab, or enter
       const lastChar = eventData.args;
       if (lastChar === ' ' || lastChar === '\t' || lastChar === '\n') return;
@@ -174,13 +200,10 @@ export default function IasqlEditor() {
       if (pos && typeof pos.row !== 'undefined' && typeof pos.column !== 'undefined')
         content = lines.slice(0, pos.row).join('\n') + '\n' + lines[pos.row].substring(0, pos.column) ?? '';
       else content = editorRef?.current?.editor.session.getValue() ?? '';
-      console.log('content is ' + content);
-
       // split in chunks and retrieve the last one
       const chunks = content.split(';');
       let finalText;
       if (chunks.length > 0) finalText = chunks[chunks.length - 1];
-      console.log(finalText);
       if (finalText && finalText.length > 3) {
         dispatch({
           action: ActionType.GetSuggestions,
@@ -279,7 +302,7 @@ export default function IasqlEditor() {
               showPrintMargin: false,
               useWorker: false,
               enableBasicAutocompletion: false,
-              enableLiveAutocompletion: false,
+              enableLiveAutocompletion: true,
               enableSnippets: true,
               showLineNumbers: true,
               spellcheck: true,
