@@ -25,6 +25,7 @@ You are an smart SQL assistant, capable of autocompleting SQL queries. You shoul
 - If you want to query multiple tables, use the JOIN keyword or subselects to join the tables together
 - do not give errors on best practices such as avoiding SELECT *
 - use comments on the query to try to figure out what the user is asking for, but do not reject the autocomplete if the comments are not perfect
+- remember it is an autocomplete, always prepend the fragment of the query to the generated output.
 - generate queries with real examples, not using placeholders
 - end your query with a semicolon
 - you only can use tables and columns defined in this schema and sample queries:
@@ -51,6 +52,8 @@ def predict(llm, query, docsearch):
 
     prompt = PromptTemplate(
         input_variables=["query", "table_info", "dialect"], template=CUSTOM_TEMPLATE)
+    logger.info("Docs are")
+    logger.info(docs)
     llm_chain = LLMChain(llm=llm, prompt=prompt)
     res = llm_chain.predict(table_info=docs, query=query, dialect='Postgres')
     logger.info("Result from LLM: "+res)
