@@ -3,8 +3,9 @@ import re
 import sys
 import requests
 from requests.auth import HTTPBasicAuth
-from langchain import OpenAI, PromptTemplate, LLMChain
+from langchain import PromptTemplate, LLMChain
 from langchain.chat_models import ChatOpenAI
+from langchain.llms import OpenAI
 import os
 from langchain.chains.chat_vector_db.prompts import QA_PROMPT
 from pglast import parse_sql, ast
@@ -116,8 +117,8 @@ def autocomplete_openai(query, docsearch):
     llm = OpenAI(temperature=os.environ.get('TEMPERATURE', 0.9),
                  model_name=os.environ.get('LLM_MODEL', 'gpt-3.5-turbo'), n=int(os.environ.get('OPENAI_NUM_ANSWERS', 1)))
     res = predict(llm, query, docsearch)
-    queries = re.split('; *\n', res.strip())
-    return queries
+    final_queries = extract_queries_from_result(res)
+    return final_queries
 
 
 def autocomplete_selfhosted(query, docsearch):

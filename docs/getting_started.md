@@ -26,7 +26,7 @@ The following options are possible:
 - USE_DATABASE - whether to store the index on the same db of the user or not. Only available for FAISS
 - DOCS_TO_RETRIEVE - the number of total documents to retrieve from the index, to be part of the autocomplete
 - EMBEDDING_METHOD - embedding engine used: openai, huggingface
-- AUTOCOMPLETE_METHOD - chat, openai, selfhosted
+- AUTOCOMPLETE_METHOD - chat (gpt-3.5-turbo), openai (generic openai models such as text-davinci-003), selfhosted
 - AUTOCOMPLETE_PROMPT - custom prompt to pass to the system to generate the autocomplete
 - TEMPERATURE - the temperature for getting the autocomplete. Decimal between 0 and 1
 - SEARCH_TYPE - type of search to use: similarity, mmr
