@@ -85,7 +85,7 @@ const initialQuery = `
   from information_schema.columns as c
   inner join information_schema.tables as t
     on c.table_name = t.table_name
-  where t.table_schema = 'public'
+  where t.table_schema = 'public' and c.table_name != 'index_content'
   order by table_name, ordinal_position;
 
   select
