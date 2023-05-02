@@ -1,9 +1,9 @@
 {
-  "short_name": "IaSQL",
-  "name": "Cloud infrastructure as a PostgreSQL DB",
+  "short_name": "SQL Pal",
+  "name": "SQL Editor with AI-based suggestions",
   "icons": [
     {
-      "src": "logo-icon.png",
+      "src": "logo.png",
       "sizes": "192x192 64x64 32x32 24x24 16x16",
       "type": "image/png"
     }

@@ -17,27 +17,29 @@ export default function Navbar({ userPic }: { userPic: string }) {
   const { config } = useAppConfigContext();
   const { token, isDarkMode, dispatch } = useAppContext();
   const { logout } = useAuth0();
-  const homeUrl = 'https://iasql.com';
-  const navigation = [
-    { name: 'Docs', href: 'https://iasql.com/docs', current: false },
-    { name: 'Discord', href: 'https://discord.com/invite/machGGczea', current: false },
+  const homeUrl = 'https://sqlpal.ai';
+  const navigation: any[] = [
   ];
   return (
-    <Disclosure as='nav' className='bg-gray-800'>
+    <Disclosure as='nav' className='bg-gray-600'>
       {({ open }) => (
         <>
           <div className='max-w-full mx-auto px-2 sm:px-4 lg:px-6'>
             <div className='relative flex items-center justify-between h-16'>
               <div className='absolute inset-y-0 left-0 flex items-center sm:hidden'>
                 {/* Mobile menu button*/}
-                <Disclosure.Button className='inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white focus:outline-none opacity-90 hover:opacity-100'>
-                  <span className='sr-only'>Open main menu</span>
-                  {open ? (
-                    <XIcon className='block h-6 w-6' aria-hidden='true' />
-                  ) : (
-                    <MenuIcon className='block h-6 w-6' aria-hidden='true' />
-                  )}
-                </Disclosure.Button>
+                {
+                  navigation.length > 0 && (
+                    <Disclosure.Button className='inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white focus:outline-none opacity-90 hover:opacity-100'>
+                      <span className='sr-only'>Open main menu</span>
+                      {open ? (
+                        <XIcon className='block h-6 w-6' aria-hidden='true' />
+                      ) : (
+                        <MenuIcon className='block h-6 w-6' aria-hidden='true' />
+                      )}
+                  </Disclosure.Button>
+                  )
+                }
               </div>
               <div className='flex-1 flex items-center justify-center sm:items-stretch sm:justify-start'>
                 <a href={homeUrl} className='flex-shrink-0 flex items-center mr-6'>

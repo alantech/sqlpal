@@ -4,12 +4,12 @@
   align-items: center;
   min-height: 100vh;
   margin: 0;
-  background-color: rgb(228, 243, 206);
-  background: linear-gradient(45deg, rgb(228, 243, 206) 0%, rgb(206, 228, 243) 100%);
+  background-color: #cf783e40;
+  background: linear-gradient(45deg, #cf783e40 0%, #3e95cf48 100%);
 }
 
 .loader-logo {
-  background-image: url(/logo-black.png);
+  background-image: url(/logo.png);
   background-repeat: no-repeat;
   background-position: center center;
   background-size: contain;
