@@ -4,6 +4,7 @@ from flask import session
 from langchain import FAISS
 from sqlalchemy import Column, Integer, LargeBinary, String
 from sqlalchemy.orm import Session
+from sqlalchemy import inspect
 from langchain.vectorstores import Chroma
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -37,11 +38,13 @@ class IndexEngine:
         content = None
         if os.environ.get('USE_DATABASE'):
             try:
-                sess = Session(bind=db._engine)
-                row = sess.query(IndexContent).filter_by(
-                    name=session['conn_str']).first()
-                if row:
-                    content = row.content
+                tables = inspect(db._engine).get_table_names()
+                if IndexContent.__tablename__ in tables:
+                    sess = Session(bind=db._engine)
+                    row = sess.query(IndexContent).filter_by(
+                        name=session['conn_str']).first()
+                    if row:
+                        content = row.content
             except Exception as e:
                 logger.exception(e)
 
@@ -61,6 +64,12 @@ class IndexEngine:
                 logger.exception(e)
 
             if content is not None:
+                tables = inspect(db._engine).get_table_names()
+                if IndexContent.__tablename__ not in tables:
+                    try:
+                        Base.metadata.create_all(bind=db._engine)
+                    except Exception as e:
+                        logger.exception(e)
                 sess = Session(bind=db._engine)
                 new_file = IndexContent(
                     name=session['conn_str'], content=content)
