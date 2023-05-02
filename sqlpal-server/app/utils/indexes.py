@@ -38,11 +38,13 @@ class IndexEngine:
         content = None
         if os.environ.get('USE_DATABASE'):
             try:
-                sess = Session(bind=db._engine)
-                row = sess.query(IndexContent).filter_by(
-                    name=session['conn_str']).first()
-                if row:
-                    content = row.content
+                tables = inspect(db._engine).get_table_names()
+                if IndexContent.__tablename__ in tables:
+                    sess = Session(bind=db._engine)
+                    row = sess.query(IndexContent).filter_by(
+                        name=session['conn_str']).first()
+                    if row:
+                        content = row.content
             except Exception as e:
                 logger.exception(e)
 
