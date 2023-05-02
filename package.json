@@ -6,15 +6,9 @@
   "main": "dist/index.js",
   "scripts": {
     "docker-build": "DOCKER_BUILDKIT=1 docker build -t sqlpal:latest .",
-    "docker-run": "docker-compose up",
-<<<<<<< HEAD
-    "docker-run:detach": "docker-compose up -d",
+    "docker-run": "docker compose up",
+    "docker-run:detach": "docker compose up -d",
     "docker-clean": "docker compose down"
-=======
-    "docker-dev-run": "docker-compose -f ./docker-compose.dev.yml up",
-    "docker-clean": "docker compose down",
-    "docker-dev-clean": "docker compose -f ./docker-compose.dev.yml down"
->>>>>>> 99373bc2 (feat: add support for runhouse)
   },
   "repository": {
     "type": "git",
