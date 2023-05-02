@@ -21,20 +21,23 @@ You are an smart SQL assistant, capable of autocompleting SQL queries. You shoul
 - write a syntactically correct query using {dialect}
 - unless the user specifies in his question a specific number of examples he wishes to obtain, do not limit the results. You can order the results by a relevant column to return the most interesting examples in the database
 - never query for all the columns from a specific table, only ask for a the few relevant columns given the question
-- if need to return a placeholder for a value, return it following the column data type
-- pay attention to use only table names, columns and indexes that you can see in the schema description. Be careful to not query for columns that do not exist. Also, pay attention to which column is in which table and the data type of the columns
-- try to use SELECT, INSERT, UPDATE or DELETE operations depending on the desired action. Use JOIN or subselects to query information from different tables
+- start your query with one of the following keywords: SELECT, INSERT, UPDATE, or DELETE, depending on the desired action
+- If you want to query multiple tables, use the JOIN keyword or subselects to join the tables together
 - do not give errors on best practices such as avoiding SELECT *
 - use comments on the query to try to figure out what the user is asking for, but do not reject the autocomplete if the comments are not perfect
-- remember it is an autocomplete, always prepend the fragment of the query to the generated output
 - generate queries with real examples, not using placeholders
-- you only can use tables and columns defined in this schema:
+- end your query with a semicolon
+- you only can use tables and columns defined in this schema and sample queries:
 
 {table_info}
 
+For example, a valid query might look like this:
+
+SELECT name, age FROM users WHERE age > 30;
+
 Please autocomplete the following SQL fragment: {query}
 
-Desired format: <valid sql query>;""")
+""")
 
 
 def predict(llm, query, docsearch):
