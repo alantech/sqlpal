@@ -60,7 +60,7 @@ def predict(llm, query, docsearch):
                     break
                 common_prefix_length += 1
 
-                if common_prefix_length >= 5:  # SELECT has 5 chars, minimum prefix needed
+                if common_prefix_length >= 6:  # SELECT has 6 chars, minimum prefix needed
                     return doc.page_content
 
     #  no queries stored, go with llm
