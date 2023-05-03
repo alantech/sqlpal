@@ -5,9 +5,9 @@
   "license": "AGPL-3.0-only",
   "main": "dist/index.js",
   "scripts": {
-    "docker-build": "docker build -t sqlpal:latest .",
-    "docker-run": "docker-compose up",
-    "docker-run:detach": "docker-compose up -d",
+    "docker-build": "DOCKER_BUILDKIT=1 docker build -t sqlpal:latest .",
+    "docker-run": "docker compose up",
+    "docker-run:detach": "docker compose up -d",
     "docker-clean": "docker compose down"
   },
   "repository": {

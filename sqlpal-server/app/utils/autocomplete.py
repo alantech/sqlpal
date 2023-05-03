@@ -1,137 +1,193 @@
+import logging
 import re
-from langchain import HuggingFaceHub, OpenAI
+import sys
+import requests
+from requests.auth import HTTPBasicAuth
+from langchain import PromptTemplate, LLMChain
 from langchain.chat_models import ChatOpenAI
-from langchain.chains import RetrievalQA
+from langchain.llms import OpenAI
 import os
-from langchain.chains.question_answering import load_qa_chain
 from langchain.chains.chat_vector_db.prompts import QA_PROMPT
 from pglast import parse_sql, ast
 from .validate import validate_select, validate_insert, validate_update, validate_delete
 import logging
 
 logger = logging.getLogger(__name__)
-
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+logger.setLevel(logging.INFO)
 
 CUSTOM_TEMPLATE = os.environ.get('AUTOCOMPLETE_PROMPT', """
 You are an smart SQL assistant, capable of autocompleting SQL queries. You should autocomplete any queries with the specific guidelines:
 - write a syntactically correct query using {dialect}
-- unless the user specifies in his question a specific number of examples he wishes to obtain, do not limit the results. You can order the results by a relevant column to return the most interesting examples in the database.
-- never query for all the columns from a specific table, only ask for a the few relevant columns given the question.
-- if need to return a placeholder for a value, return it following the column data type.
-- pay attention to use only table names, columns and indexes that you can see in the schema description. Be careful to not query for columns that do not exist. Also, pay attention to which column is in which table and the data type of the columns.
-- try to use SELECT, INSERT, UPDATE or DELETE operations depending on the desired action. Use JOIN or subselects to query information from different tables.
-- do not give errors on best practices such as avoiding SELECT *.
-- use comments on the query to try to figure out what the user is asking for, but do not reject the autocomplete if the comments are not perfect.
+- unless the user specifies in his question a specific number of examples he wishes to obtain, do not limit the results. You can order the results by a relevant column to return the most interesting examples in the database
+- never query for all the columns from a specific table, only ask for a the few relevant columns given the question
+- start your query with one of the following keywords: SELECT, INSERT, UPDATE, or DELETE, depending on the desired action
+- If you want to query multiple tables, use the JOIN keyword or subselects to join the tables together
+- do not give errors on best practices such as avoiding SELECT *
+- use comments on the query to try to figure out what the user is asking for, but do not reject the autocomplete if the comments are not perfect
 - remember it is an autocomplete, always prepend the fragment of the query to the generated output.
+- generate queries with real examples, not using placeholders
+- end your query with a semicolon
+- you only can use tables and columns defined in this schema and sample queries:
 
-Example:
+{table_info}
 
-<<<
-# generate a list of buckets in my region
-SELECT i
->>>
+For example, a valid query might look like this:
 
-Output: SELECT index, name FROM bucket WHERE region = 'us-east-1';
+SELECT name, age FROM users WHERE age > 30;
 
-Please continue the query with the following input:
+Please autocomplete the following SQL fragment: {query}
 
-<<<
-{input}
->>>
-
-Output:
 """)
+
+
+def predict(llm, query, docsearch):
+    # different search types
+    if (os.environ.get('SEARCH_TYPE', 'similarity') == 'mmr'):
+        docs = docsearch.max_marginal_relevance_search(
+            query, k=int(os.environ.get('DOCS_TO_RETRIEVE', 5)))
+    else:
+        docs = docsearch.similarity_search(
+            query, k=int(os.environ.get('DOCS_TO_RETRIEVE', 5)))
+
+    prompt = PromptTemplate(
+        input_variables=["query", "table_info", "dialect"], template=CUSTOM_TEMPLATE)
+    logger.info("Docs are")
+    logger.info(docs)
+    llm_chain = LLMChain(llm=llm, prompt=prompt)
+    res = llm_chain.predict(table_info=docs, query=query, dialect='Postgres')
+    logger.info("Result from LLM: "+res)
+
+    return res
+
+
+def extract_queries_from_result(result):
+    lines = result.split('\n')
+
+    # Initialize list to store SQL queries
+    queries = []
+
+    # Initialize variables to track current query
+    current_query = ''
+    inside_query = False
+
+    # Loop through each line
+    for line in lines:
+        # Check if line contains a SQL keyword
+        pattern = r"(?i)\b(SELECT|INSERT|UPDATE|DELETE)\b"
+        match = re.search(pattern, line)
+        if match:
+            index = match.start()
+            line = line[index:]
+            # find the pos of the query
+            inside_query = True
+
+        if inside_query:
+            # Append line to current query
+            current_query += ' ' + line
+
+            # Check if query has a semicolon and get the position
+            position = current_query.find(';')
+            if position != -1:
+                stripped_query = current_query[:position + 1]
+                stripped_query = stripped_query.replace('\\', '')
+
+                queries.append(stripped_query.strip())
+
+                current_query = ''
+                inside_query = False
+
+    # If there is only one query and it is not multiline, add it to the list
+    if current_query:
+        # strip the query until ;
+        position = current_query.find(';')
+        if position != -1:
+            stripped_query = current_query[:position + 1]
+            stripped_query = stripped_query.replace('\\', '')
+
+            queries.append(stripped_query.strip())
+
+    # Return list of SQL queries
+    return queries
 
 
 def autocomplete_chat(query, docsearch):
     llm = ChatOpenAI(temperature=os.environ.get('TEMPERATURE', 0.9),
-                     model_name=os.environ.get('LLM_MODEL', 'gpt-3.5-turbo'), n=os.environ.get('OPENAI_NUM_ANSWERS', 1))
-    # for the autocomplete case, stuff is the only possible value
-    chain = load_qa_chain(llm, chain_type="stuff", prompt=QA_PROMPT)
-
-    # different search types
-    if (os.environ.get('SEARCH_TYPE', 'similarity') == 'mmr'):
-        docs = docsearch.max_marginal_relevance_search(
-            query, k=os.environ.get('DOCS_TO_RETRIEVE', 5))
-    else:
-        docs = docsearch.similarity_search(
-            query, k=os.environ.get('DOCS_TO_RETRIEVE', 5))
-    query_str = CUSTOM_TEMPLATE.format(dialect="Postgres", input=query)
-
-    res = chain(
-        {"input_documents": docs, "question": query_str}, return_only_outputs=True
-    )
-    queries = re.split('; *\n', res["output_text"].strip())
-    return queries
+                     model_name=os.environ.get('LLM_MODEL', 'gpt-3.5-turbo'), n=int(os.environ.get('OPENAI_NUM_ANSWERS', 1)))
+    res = predict(llm, query, docsearch)
+    final_queries = extract_queries_from_result(res)
+    return final_queries
 
 
-def autocomplete_retrieval(query, docsearch):
+def autocomplete_openai(query, docsearch):
     llm = OpenAI(temperature=os.environ.get('TEMPERATURE', 0.9),
-                 model_name=os.environ.get('LLM_MODEL', 'gpt-3.5-turbo'), n=os.environ.get('OPENAI_NUM_ANSWERS', 1))
-
-    retriever = docsearch.as_retriever(search_type=os.environ.get(
-        'SEARCH_TYPE', 'similarity'), search_kwargs={"k": os.environ.get('DOCS_TO_RETRIEVE', 5)})
-    qa = RetrievalQA.from_chain_type(
-        llm=llm, chain_type="stuff", retriever=retriever)
-    query_str = CUSTOM_TEMPLATE.format(dialect="Postgres", input=query)
-    res = qa({'query': query_str})
-    queries = re.split('; *\n', res["result"].strip())
-    return queries
+                 model_name=os.environ.get('LLM_MODEL', 'gpt-3.5-turbo'), n=int(os.environ.get('OPENAI_NUM_ANSWERS', 1)))
+    res = predict(llm, query, docsearch)
+    final_queries = extract_queries_from_result(res)
+    return final_queries
 
 
-def autocomplete_llm(query, docsearch):
-    llm = OpenAI(temperature=os.environ.get('TEMPERATURE', 0.9),
-                 model_name=os.environ.get('LLM_MODEL', 'gpt-3.5-turbo'), n=os.environ.get('OPENAI_NUM_ANSWERS', 1))
-
-    # for the autocomplete case, stuff is the only possible value
-    chain = load_qa_chain(llm, chain_type="stuff", prompt=QA_PROMPT)
+def autocomplete_selfhosted(query, docsearch):
     # different search types
     if (os.environ.get('SEARCH_TYPE', 'similarity') == 'mmr'):
         docs = docsearch.max_marginal_relevance_search(
-            query, k=os.environ.get('DOCS_TO_RETRIEVE', 5))
+            query, k=int(os.environ.get('DOCS_TO_RETRIEVE', 5)))
     else:
         docs = docsearch.similarity_search(
-            query, k=os.environ.get('DOCS_TO_RETRIEVE', 5))
-    query_str = CUSTOM_TEMPLATE.format(dialect="Postgres", input=query)
+            query, k=int(os.environ.get('DOCS_TO_RETRIEVE', 5)))
 
-    res = chain(
-        {"input_documents": docs, "question": query_str}, return_only_outputs=True
-    )
-    queries = re.split('; *\n', res["output_text"].strip())
-    return queries
+    prompt = PromptTemplate(
+        input_variables=["query", "table_info", "dialect"], template=CUSTOM_TEMPLATE)
+    query = prompt.format(query=query, table_info=docs, dialect='Postgres')
 
+    # issue a request to an external API
+    request = {
+        'prompt': query,
+        'temperature': float(os.environ.get('TEMPERATURE', 1.3)),
+        'top_p': 0.1,
+        'typical_p': 1,
+        'repetition_penalty': 1.18,
+        'top_k': 40,
+        'min_length': 0,
+        'no_repeat_ngram_size': 0,
+        'num_beams': 1,
+        'penalty_alpha': 0,
+        'length_penalty': 1,
+        'early_stopping': False,
+        'seed': -1,
+        'add_bos_token': True,
+        'truncation_length': 2048,
+        'ban_eos_token': False,
+        'skip_special_tokens': True,
+        'stopping_strings': []
+    }
 
-def autocomplete_huggingface(query, docsearch):
-    llm = HuggingFaceHub(repo_id=os.environ.get('LLM_MODEL', ''), model_kwargs={
-                         "temperature": os.environ.get('TEMPERATURE', 0.9), "max_length": os.environ.get('HUGGINGFACE_MAX_TOKENS', 64)})
-    chain = load_qa_chain(llm, chain_type="stuff", prompt=QA_PROMPT)
-    # different search types
-    if (os.environ.get('SEARCH_TYPE', 'similarity') == 'mmr'):
-        docs = docsearch.max_marginal_relevance_search(
-            query, k=os.environ.get('DOCS_TO_RETRIEVE', 5))
-    else:
-        docs = docsearch.similarity_search(
-            query, k=os.environ.get('DOCS_TO_RETRIEVE', 5))
-    query_str = CUSTOM_TEMPLATE.format(dialect="Postgres", input=query)
+    try:
+        response = requests.post(os.environ.get('LLM_HOST', ''), json=request, auth=HTTPBasicAuth(
+            os.environ.get('LLM_USER', ''), os.environ.get('LLM_PASSWORD', '')))
+        if response.status_code == 200:
+            result = response.json()['results'][0]['text']
+            logger.info("Result from LLM: "+result)
+            final_queries = extract_queries_from_result(result)
+            return final_queries
+    except Exception as e:
+        logger.exception("Error in autocomplete_selfhosted: "+e)
 
-    res = chain(
-        {"input_documents": docs, "question": query_str}, return_only_outputs=True
-    )
-    queries = re.split('; *\n', res["output_text"].strip())
-    return queries
+    return None
 
 
 def autocomplete_query(query, docsearch, columns_by_table_dict):
     if os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'chat':
         queries = autocomplete_chat(query, docsearch)
-    elif os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'retrieval':
-        queries = autocomplete_retrieval(query, docsearch)
-    elif os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'llm':
-        queries = autocomplete_llm(query, docsearch)
-    elif os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'huggingface':
-        queries = autocomplete_huggingface(query, docsearch)
+    elif os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'openai':
+        queries = autocomplete_openai(query, docsearch)
+    elif os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'selfhosted':
+        queries = autocomplete_selfhosted(query, docsearch)
     else:
         queries = autocomplete_chat(query, docsearch)
+
+    logger.info("Returned queries are: ")
+    logger.info(queries)
 
     final_query = None
     for q in queries:
