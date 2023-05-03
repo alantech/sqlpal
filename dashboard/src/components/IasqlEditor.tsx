@@ -291,8 +291,17 @@ export default function IasqlEditor() {
   useEffect(() => {
     const editor = editorRef?.current?.editor;
     if (editor) {
+      const isPopupOpen = !!editor?.completer?.popup?.isOpen;
       const markerErrorClass = 'absolute border-b-2 border-dotted border-rose-500';
       const markerType = 'text';
+      editor.session.clearAnnotations();
+      // If there are no statements, we remove all markers
+      if (!Object.keys(stmtsTable ?? {}).length) {
+        const currentMarkers = editor.session.getMarkers(true);
+        for (const m of Object.values(currentMarkers ?? {})) {
+          editor.session.removeMarker(m.id);
+        }
+      }
       for (const stmt of Object.keys(stmtsTable ?? {})) {
         const parseError = stmtsTable?.[stmt];
         // Find the statement in the editor content.
@@ -312,18 +321,19 @@ export default function IasqlEditor() {
             m?.range?.start.column === range.start.column &&
             m?.clazz === markerErrorClass,
         );
-        const currentAnnotations = editor.session.getAnnotations();
-        editor.session.setAnnotations(currentAnnotations.filter(a => a.row !== range.start.row));
         // Now, if there's a parseError we need to add the annotation and the marker
         if (parseError) {
           if (!stmtMarker) editor.session.addMarker(range, markerErrorClass, markerType, true);
-          editor.session.setAnnotations([{ row: range.start.row, type: 'error', text: stmtsTable?.[stmt] }]);
+          editor.session.setAnnotations([
+            ...editor.session.getAnnotations(),
+            { row: range.start.row, type: 'error', text: stmtsTable?.[stmt] },
+          ]);
         }
         // If theres no parseError but we have a marker, we remove it
-        if (!parseError && stmtMarker) {
-          editor.session.removeMarker(stmtMarker.id);
-        }
+        if (!parseError && stmtMarker) editor.session.removeMarker(stmtMarker.id);
       }
+      // If the popup was open, we need to reopen it
+      if (isPopupOpen) editor.completer?.showPopup(editor);
     }
   }, [stmtsTable]);
 
