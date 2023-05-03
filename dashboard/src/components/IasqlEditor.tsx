@@ -198,11 +198,11 @@ export default function IasqlEditor() {
   }, [editorTabs]);
 
   const handleAfterExec = debounce((eventData: any) => {
+    dispatch({
+      action: ActionType.ValidateContent,
+      data: { content: editorRef?.current?.editor.getValue() },
+    });
     if (eventData.command.name === 'insertstring') {
-      dispatch({
-        action: ActionType.ValidateContent,
-        data: { content: editorRef?.current?.editor.getValue() },
-      });
       // check if latest characters typed have been space, tab, or enter
       const lastChar = eventData.args;
       if (lastChar === ' ' || lastChar === '\t' || lastChar === '\n') return;
