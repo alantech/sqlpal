@@ -8,7 +8,6 @@ async function sqlParse(req: NextApiRequest, res: NextApiResponse) {
     meta: req.body,
   });
   const t1 = Date.now();
-  console.log('req.body', req.body);
   const { content } = req.body;
   try {
     const output = parse(content);
