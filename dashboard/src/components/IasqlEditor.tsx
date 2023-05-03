@@ -294,13 +294,11 @@ export default function IasqlEditor() {
       const isPopupOpen = !!editor?.completer?.popup?.isOpen;
       const markerErrorClass = 'absolute border-b-2 border-dotted border-rose-500';
       const markerType = 'text';
+      // Clean-up phase
       editor.session.clearAnnotations();
-      // If there are no statements, we remove all markers
-      if (!Object.keys(stmtsTable ?? {}).length) {
-        const currentMarkers = editor.session.getMarkers(true);
-        for (const m of Object.values(currentMarkers ?? {})) {
-          editor.session.removeMarker(m.id);
-        }
+      const currentMarkers = editor.session.getMarkers(true);
+      for (const m of Object.values(currentMarkers ?? {})) {
+        editor.session.removeMarker(m.id);
       }
       for (const stmt of Object.keys(stmtsTable ?? {})) {
         const parseError = stmtsTable?.[stmt];
@@ -312,25 +310,14 @@ export default function IasqlEditor() {
         if (cursorPos) editor.moveCursorToPosition(cursorPos);
         // If we did not find the statement, we continue
         if (!range) continue;
-        // Let's get current markers
-        const currentMarkers = editor.session.getMarkers(true);
-        const stmtMarker = Object.values(currentMarkers ?? {}).find(
-          m =>
-            m?.type === markerType &&
-            m?.range?.start.row === range.start.row &&
-            m?.range?.start.column === range.start.column &&
-            m?.clazz === markerErrorClass,
-        );
         // Now, if there's a parseError we need to add the annotation and the marker
         if (parseError) {
-          if (!stmtMarker) editor.session.addMarker(range, markerErrorClass, markerType, true);
+          editor.session.addMarker(range, markerErrorClass, markerType, true);
           editor.session.setAnnotations([
             ...editor.session.getAnnotations(),
             { row: range.start.row, type: 'error', text: stmtsTable?.[stmt] },
           ]);
         }
-        // If theres no parseError but we have a marker, we remove it
-        if (!parseError && stmtMarker) editor.session.removeMarker(stmtMarker.id);
       }
       // If the popup was open, we need to reopen it
       if (isPopupOpen) editor.completer?.showPopup(editor);
