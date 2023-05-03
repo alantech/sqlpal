@@ -70,7 +70,7 @@ interface AppState {
     suggestions: { value: string; meta: string; score: number }[];
   }[];
   forceRun: boolean;
-  stmtsTable?: {
+  parseErrorsByStmt?: {
     [stmt: string]: string;
   };
 }
@@ -227,8 +227,8 @@ const reducer = (state: AppState, payload: Payload): AppState => {
       return { ...state, editorTabs: tabsCopy };
     }
     case ActionType.ValidateContent: {
-      const { stmtsTable } = payload.data;
-      return { ...state, stmtsTable };
+      const { parseErrorsByStmt } = payload.data;
+      return { ...state, parseErrorsByStmt };
     }
   }
   return state;
@@ -369,25 +369,25 @@ const middlewareReducer = async (
         .split(';')
         .map((s: string) => s.trim())
         .filter((s: string) => s.length > 0);
-      const stmtsTable: any = {};
+      const parseErrorsByStmt: { [stmt: string]: string } = {};
       for (const stmt of statements) {
         try {
-          const response = await fetch(`/api/sqlParse`, {
+          const sqlParseRes = await fetch(`/api/sqlParse`, {
             body: JSON.stringify({ content: stmt }),
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
           });
-          const json = await response.json();
-          if (json.message) {
-            stmtsTable[stmt] = json.message;
+          const sqlParseErr = await sqlParseRes.json();
+          if (sqlParseErr.message) {
+            parseErrorsByStmt[stmt] = sqlParseErr.message;
           } else {
-            stmtsTable[stmt] = '';
+            parseErrorsByStmt[stmt] = '';
           }
         } catch (e) {
           console.error(e);
         }
       }
-      dispatch({ ...payload, data: { stmtsTable } });
+      dispatch({ ...payload, data: { parseErrorsByStmt } });
       break;
     }
     default: {
@@ -454,7 +454,7 @@ const AppProvider = ({ children }: { children: any }) => {
         editorSelectedTab: state.editorSelectedTab,
         editorTabsCreated: state.editorTabsCreated,
         forceRun: state.forceRun,
-        stmtsTable: state.stmtsTable,
+        parseErrorsByStmt: state.parseErrorsByStmt,
         dispatch: customDispatch,
       }}
     >

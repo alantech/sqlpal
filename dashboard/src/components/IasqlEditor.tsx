@@ -38,7 +38,7 @@ export default function IasqlEditor() {
     forceRun,
     connString,
     schema,
-    stmtsTable,
+    parseErrorsByStmt,
   } = useAppContext();
   const editorRef = useRef(null as null | ReactAce);
   const prevTabsLenRef = useRef(null as null | number);
@@ -300,8 +300,8 @@ export default function IasqlEditor() {
       for (const m of Object.values(currentMarkers ?? {})) {
         editor.session.removeMarker(m.id);
       }
-      for (const stmt of Object.keys(stmtsTable ?? {})) {
-        const parseError = stmtsTable?.[stmt];
+      for (const stmt of Object.keys(parseErrorsByStmt ?? {})) {
+        const parseError = parseErrorsByStmt?.[stmt];
         // Find the statement in the editor content.
         // The `find` method automatically selects the range, so we need to clear the selection and restore the cursor position
         const cursorPos = editor.getCursorPosition();
@@ -315,14 +315,14 @@ export default function IasqlEditor() {
           editor.session.addMarker(range, markerErrorClass, markerType, true);
           editor.session.setAnnotations([
             ...editor.session.getAnnotations(),
-            { row: range.start.row, type: 'error', text: stmtsTable?.[stmt] },
+            { row: range.start.row, type: 'error', text: parseErrorsByStmt?.[stmt] },
           ]);
         }
       }
       // If the popup was open, we need to reopen it
       if (isPopupOpen) editor.completer?.showPopup(editor);
     }
-  }, [stmtsTable]);
+  }, [parseErrorsByStmt]);
 
   return (
     <VBox customClasses='mb-3'>
