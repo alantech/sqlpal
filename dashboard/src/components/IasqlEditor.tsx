@@ -29,8 +29,17 @@ const ForwardRefEditor = forwardRef((props: IAceEditorProps, ref: any) => (
 ForwardRefEditor.displayName = 'ForwardRefEditor';
 
 export default function IasqlEditor() {
-  const { dispatch, isDarkMode, token, editorTabs, editorSelectedTab, forceRun, connString, schema } =
-    useAppContext();
+  const {
+    dispatch,
+    isDarkMode,
+    token,
+    editorTabs,
+    editorSelectedTab,
+    forceRun,
+    connString,
+    schema,
+    stmtsTable,
+  } = useAppContext();
   const editorRef = useRef(null as null | ReactAce);
   const prevTabsLenRef = useRef(null as null | number);
   const queryParams = useQueryParams();
@@ -190,6 +199,10 @@ export default function IasqlEditor() {
 
   const handleAfterExec = debounce((eventData: any) => {
     if (eventData.command.name === 'insertstring') {
+      dispatch({
+        action: ActionType.ValidateContent,
+        data: { content: editorRef?.current?.editor.getValue() },
+      });
       // check if latest characters typed have been space, tab, or enter
       const lastChar = eventData.args;
       if (lastChar === ' ' || lastChar === '\t' || lastChar === '\n') return;
@@ -274,6 +287,45 @@ export default function IasqlEditor() {
       });
     }
   }, [editorRef.current]);
+
+  useEffect(() => {
+    const editor = editorRef?.current?.editor;
+    if (editor) {
+      const markerErrorClass = 'absolute border-b-2 border-dotted border-rose-500';
+      const markerType = 'text';
+      for (const stmt of Object.keys(stmtsTable ?? {})) {
+        const parseError = stmtsTable?.[stmt];
+        // Find the statement in the editor content.
+        // The `find` method automatically selects the range, so we need to clear the selection and restore the cursor position
+        const cursorPos = editor.getCursorPosition();
+        const range = editor.find(stmt, {}, false);
+        editor?.selection?.clearSelection();
+        if (cursorPos) editor.moveCursorToPosition(cursorPos);
+        // If we did not find the statement, we continue
+        if (!range) continue;
+        // Let's get current markers
+        const currentMarkers = editor.session.getMarkers(true);
+        const stmtMarker = Object.values(currentMarkers ?? {}).find(
+          m =>
+            m?.type === markerType &&
+            m?.range?.start.row === range.start.row &&
+            m?.range?.start.column === range.start.column &&
+            m?.clazz === markerErrorClass,
+        );
+        const currentAnnotations = editor.session.getAnnotations();
+        editor.session.setAnnotations(currentAnnotations.filter(a => a.row !== range.start.row));
+        // Now, if there's a parseError we need to add the annotation and the marker
+        if (parseError) {
+          if (!stmtMarker) editor.session.addMarker(range, markerErrorClass, markerType, true);
+          editor.session.setAnnotations([{ row: range.start.row, type: 'error', text: stmtsTable?.[stmt] }]);
+        }
+        // If theres no parseError but we have a marker, we remove it
+        if (!parseError && stmtMarker) {
+          editor.session.removeMarker(stmtMarker.id);
+        }
+      }
+    }
+  }, [stmtsTable]);
 
   return (
     <VBox customClasses='mb-3'>
