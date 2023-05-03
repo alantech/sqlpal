@@ -90,7 +90,7 @@ class FaissEngine(IndexEngine):
             docsearch = FAISS.load_local(
                 self.index_folder, embeddings, filename)
         except Exception as e:
-            logger.info("Index does not exist, creating a new one")
+            logger.info("Index does not exist, starting from new one")
             docsearch = None
 
         return docsearch
