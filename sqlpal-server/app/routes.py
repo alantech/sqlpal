@@ -39,17 +39,15 @@ def discover():
 
     tables = db.get_usable_table_names()
     texts = []
+    metadatas = []
     for table in tables:
         info = db.get_table_info(table_names=[table])
         info = info.replace('\t', ' ').replace('\n', ' ')
         texts.append(info)
+        metadatas.append({'type': 'schema'})
 
     # add to a vector search using embeddings
-    if docsearch is None:
-        docsearch = index_engine.read_index_contents(texts, embeddings)
-    else:
-        docsearch.add_texts(texts)
-
+    docsearch = index_engine.read_index_contents(texts, embeddings, metadatas)
     index_engine.write_index(db, docsearch)
     response = jsonify({"status": 'OK'})
     return response
@@ -100,7 +98,8 @@ def add():
     if docsearch is not None:
         query = request.json.get('query', None)
         if query:
-            docsearch.add_texts([query])
+            docsearch.add_texts([query], [{'type': 'query'}])
+            index_engine.write_index(db, docsearch)
             response = jsonify({"status": 'OK'})
             return response
         else:

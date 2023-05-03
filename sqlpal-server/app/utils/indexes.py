@@ -57,6 +57,9 @@ class IndexEngine:
     def save_to_db(self, db, filepath):
         if os.environ.get('USE_DATABASE'):
             content = None
+            # add suffix for faiss
+            if os.environ.get('INDEX_ENGINE', 'FAISS') == 'FAISS':
+                filepath = filepath + '.pkl'
             try:
                 with open(filepath, 'rb') as f:
                     content = f.read()
@@ -79,7 +82,7 @@ class IndexEngine:
 
 class FaissEngine(IndexEngine):
     def read_index(self, db, embeddings):
-        filename = "index_{}".format(session['conn_str'])
+        filename = "index-{}".format(session['conn_str'])
         self.retrieve_index(db, filename)
 
         # now read as usual from a file
@@ -87,25 +90,25 @@ class FaissEngine(IndexEngine):
             docsearch = FAISS.load_local(
                 self.index_folder, embeddings, filename)
         except Exception as e:
-            logger.exception(e)
+            logger.info("Index does not exist, starting from new one")
             docsearch = None
 
         return docsearch
 
     def write_index(self, db, docsearch):
-        filename = "index_{}".format(session['conn_str'])
+        filename = "index-{}".format(session['conn_str'])
         filepath = os.path.join(self.index_folder, filename)
         docsearch.save_local(self.index_folder, filename)
         self.save_to_db(db, filepath)
 
-    def read_index_contents(self, texts, embeddings):
-        docsearch = FAISS.from_texts(texts, embeddings)
+    def read_index_contents(self, texts, embeddings, metadatas):
+        docsearch = FAISS.from_texts(texts, embeddings, metadatas)
         return docsearch
 
 
 class ChromaEngine(IndexEngine):
     def read_index(self, db, embeddings):
-        filename = "index_{}".format(session['conn_str'])
+        filename = "index-{}".format(session['conn_str'])
         self.retrieve_index(db, filename)
 
         # now read as usual from a file
@@ -120,13 +123,13 @@ class ChromaEngine(IndexEngine):
 
     def write_index(self, db, vectordb):
         vectordb.persist()
-        filename = "index_{}".format(session['conn_str'])
+        filename = "index-{}".format(session['conn_str'])
         filepath = os.path.join(self.index_folder, filename)
         self.save_to_db(db, filepath)
 
-    def read_index_contents(self, texts, embeddings):
-        filename = "index_{}".format(session['conn_str'])
+    def read_index_contents(self, texts, embeddings, metadatas):
+        filename = "index-{}".format(session['conn_str'])
 
         vectordb = Chroma.from_texts(
-            texts=texts, embedding=embeddings, persist_directory=self.index_folder, collection_name=filename)
+            texts=texts, embedding=embeddings, persist_directory=self.index_folder, collection_name=filename, metadatas=metadatas)
         return vectordb

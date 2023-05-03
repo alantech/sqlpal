@@ -50,10 +50,22 @@ def predict(llm, query, docsearch):
         docs = docsearch.similarity_search(
             query, k=int(os.environ.get('DOCS_TO_RETRIEVE', 5)))
 
+    # before using LLM we can check if docs already contain the query
+    for doc in docs:
+        if (doc.metadata['type'] == 'query' and doc.page_content):
+            # Find the length of the common prefix
+            common_prefix_length = 0
+            for char1, char2 in zip(doc.page_content.strip(), query.strip()):
+                if char1 != char2:
+                    break
+                common_prefix_length += 1
+
+                if common_prefix_length >= 6:  # SELECT has 6 chars, minimum prefix needed
+                    return doc.page_content
+
+    #  no queries stored, go with llm
     prompt = PromptTemplate(
         input_variables=["query", "table_info", "dialect"], template=CUSTOM_TEMPLATE)
-    logger.info("Docs are")
-    logger.info(docs)
     llm_chain = LLMChain(llm=llm, prompt=prompt)
     res = llm_chain.predict(table_info=docs, query=query, dialect='Postgres')
     logger.info("Result from LLM: "+res)
