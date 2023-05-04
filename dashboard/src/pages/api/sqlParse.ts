@@ -1,4 +1,4 @@
-import { A_Expr } from 'libpg-query';
+import { A_Expr, InsertStmt, OneOfInsertStmt } from 'libpg-query';
 import { SelectStmt } from 'libpg-query';
 import { OneOfA_Expr } from 'libpg-query';
 import { OneOfString } from 'libpg-query';
@@ -67,7 +67,11 @@ function validateStatement(rawStmt: RawStmt, schema: Schema): string {
   if (selectStmt) {
     err = validateSelectStmt(selectStmt, schema);
   }
-  // todo: validate insert statement
+  // validate insert statement
+  const insertStmt = extractInsertStmt(rawStmt.stmt);
+  if (insertStmt) {
+    err = validateInsertStmt(insertStmt, schema);
+  }
   // todo: validate update statement
   // todo: validate delete statement
   return err;
@@ -151,4 +155,29 @@ function extractColumnNameIfColumnRef(obj: any): string | undefined {
     }
   }
   return undefined;
+}
+
+function extractInsertStmt(obj: any): InsertStmt | undefined {
+  if (Object.getOwnPropertyNames(obj ?? {}).find(k => k === 'InsertStmt')) {
+    return (obj as OneOfInsertStmt).InsertStmt as InsertStmt;
+  }
+  return undefined;
+}
+
+function validateInsertStmt(insertStmt: InsertStmt, schema: Schema): string {
+  let err = '';
+  const relName = extractRelNameIfRangeVar(insertStmt.relation);
+  if (relName && !schema[relName]) {
+    return `Table "${relName}" does not exist in schema`;
+  } else if (relName) {
+    const tableColumns = Object.keys(schema[relName]);
+    const resTargetValues = insertStmt.cols?.map(c => c.ResTarget?.val);
+    for (const resTargetVal of resTargetValues ?? []) {
+      const columnName = extractColumnNameIfColumnRef(resTargetVal);
+      if (!!columnName && !tableColumns.includes(columnName ?? '')) {
+        return `Column "${columnName}" does not exist in table "${relName}"`;
+      }
+    }
+  }
+  return err;
 }
