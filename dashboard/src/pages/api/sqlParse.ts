@@ -1,9 +1,17 @@
-import { A_Expr, InsertStmt, OneOfInsertStmt } from 'libpg-query';
-import { SelectStmt } from 'libpg-query';
-import { OneOfA_Expr } from 'libpg-query';
-import { OneOfString } from 'libpg-query';
-import { OneOfColumnRef } from 'libpg-query';
-import { RawStmt, OneOfSelectStmt, OneOfRangeVar } from 'libpg-query';
+import {
+  A_Expr,
+  InsertStmt,
+  OneOfA_Expr,
+  OneOfColumnRef,
+  OneOfInsertStmt,
+  OneOfRangeVar,
+  OneOfSelectStmt,
+  OneOfString,
+  OneOfUpdateStmt,
+  RawStmt,
+  SelectStmt,
+  UpdateStmt,
+} from 'libpg-query';
 import { NextApiRequest, NextApiResponse } from 'next';
 import { parse } from 'pgsql-parser';
 import { inspect } from 'util';
@@ -72,7 +80,11 @@ function validateStatement(rawStmt: RawStmt, schema: Schema): string {
   if (insertStmt) {
     err = validateInsertStmt(insertStmt, schema);
   }
-  // todo: validate update statement
+  // validate update statement
+  const updateStmt = extractUpdateStmt(rawStmt.stmt);
+  if (updateStmt) {
+    err = validateUpdateStmt(updateStmt, schema);
+  }
   // todo: validate delete statement
   return err;
 }
@@ -176,6 +188,47 @@ function validateInsertStmt(insertStmt: InsertStmt, schema: Schema): string {
       const columnName = extractColumnNameIfColumnRef(resTargetVal);
       if (!!columnName && !tableColumns.includes(columnName ?? '')) {
         return `Column "${columnName}" does not exist in table "${relName}"`;
+      }
+    }
+  }
+  return err;
+}
+
+function extractUpdateStmt(obj: any): UpdateStmt | undefined {
+  if (Object.getOwnPropertyNames(obj ?? {}).find(k => k === 'UpdateStmt')) {
+    return (obj as OneOfUpdateStmt).UpdateStmt as UpdateStmt;
+  }
+  return undefined;
+}
+
+function validateUpdateStmt(updateStmt: UpdateStmt, schema: Schema): string {
+  let err = '';
+  const relName = extractRelNameIfRangeVar(updateStmt.relation);
+  if (relName && !schema[relName]) {
+    return `Table "${relName}" does not exist in schema`;
+  } else if (relName) {
+    const tableColumns = Object.keys(schema[relName]);
+    const resTargetValues = updateStmt.targetList?.map(t => t.ResTarget?.val);
+    for (const resTargetVal of resTargetValues ?? []) {
+      const columnName = extractColumnNameIfColumnRef(resTargetVal);
+      if (!!columnName && !tableColumns.includes(columnName ?? '')) {
+        return `Column "${columnName}" does not exist in table "${relName}"`;
+      }
+    }
+  }
+  const whereClause = updateStmt.whereClause;
+  if (whereClause && relName) {
+    const aExpr = extractAExpr(whereClause);
+    if (aExpr) {
+      const left = aExpr.lexpr;
+      const leftColumnName = extractColumnNameIfColumnRef(left);
+      if (!!leftColumnName && !schema[relName][leftColumnName]) {
+        return `Column "${leftColumnName}" does not exist in table "${relName}"`;
+      }
+      const right = aExpr.rexpr;
+      const rightColumnName = extractColumnNameIfColumnRef(right);
+      if (!!rightColumnName && !schema[relName][rightColumnName]) {
+        return `Column "${rightColumnName}" does not exist in table "${relName}"`;
       }
     }
   }
