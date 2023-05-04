@@ -364,7 +364,7 @@ const middlewareReducer = async (
       break;
     }
     case ActionType.ValidateContent: {
-      const { content } = payload.data;
+      const { content, schema } = payload.data;
       const statements = content
         .split(';')
         .map((s: string) => s.trim())
@@ -373,7 +373,7 @@ const middlewareReducer = async (
       for (const stmt of statements) {
         try {
           const sqlParseRes = await fetch(`/api/sqlParse`, {
-            body: JSON.stringify({ content: stmt }),
+            body: JSON.stringify({ content: stmt, schema }),
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
           });
