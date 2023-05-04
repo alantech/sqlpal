@@ -82,9 +82,9 @@ function validateSelectStmt(selectStmt: SelectStmt, schema: Schema): string {
   const schemaColumns = Object.values(schema)
     .map(t => Object.keys(t))
     .flat();
-  const resTargetVals = selectStmt.targetList?.map(t => t.ResTarget?.val);
+  const resTargetValues = selectStmt.targetList?.map(t => t.ResTarget?.val);
   const columnNames: string[] = [];
-  for (const resTarget of resTargetVals ?? []) {
+  for (const resTarget of resTargetValues ?? []) {
     const columnName = extractColumnNameIfColumnRef(resTarget);
     if (!!columnName && !schemaColumns.includes(columnName ?? '')) {
       return `Column "${columnName}" does not exist in schema`;
@@ -98,9 +98,9 @@ function validateSelectStmt(selectStmt: SelectStmt, schema: Schema): string {
     if (relName && !schema[relName]) {
       return `Table "${relName}" does not exist in schema`;
     } else if (relName) {
-      const columns = Object.keys(schema[relName]);
+      const tableColumns = Object.keys(schema[relName]);
       for (const columnName of columnNames ?? []) {
-        if (!columns.includes(columnName ?? '')) {
+        if (!tableColumns.includes(columnName ?? '')) {
           return `Column "${columnName}" does not exist in table "${relName}"`;
         }
       }
@@ -126,31 +126,31 @@ function validateSelectStmt(selectStmt: SelectStmt, schema: Schema): string {
 }
 
 function extractSelectStmt(obj: any): SelectStmt | undefined {
-  if (Object.getOwnPropertyNames(obj).find(k => k === 'SelectStmt')) {
+  if (Object.getOwnPropertyNames(obj ?? {}).find(k => k === 'SelectStmt')) {
     return (obj as OneOfSelectStmt).SelectStmt as SelectStmt;
   }
   return undefined;
 }
 
 function extractAExpr(obj: any): A_Expr | undefined {
-  if (Object.getOwnPropertyNames(obj).find(k => k === 'A_Expr')) {
+  if (Object.getOwnPropertyNames(obj ?? {}).find(k => k === 'A_Expr')) {
     return (obj as OneOfA_Expr).A_Expr as A_Expr;
   }
   return undefined;
 }
 
 function extractRelNameIfRangeVar(obj: any): string | undefined {
-  if (Object.getOwnPropertyNames(obj).find(k => k === 'RangeVar')) {
+  if (Object.getOwnPropertyNames(obj ?? {}).find(k => k === 'RangeVar')) {
     return (obj as OneOfRangeVar).RangeVar.relname;
   }
   return undefined;
 }
 
 function extractColumnNameIfColumnRef(obj: any): string | undefined {
-  if (Object.getOwnPropertyNames(obj).find(k => k === 'ColumnRef')) {
+  if (Object.getOwnPropertyNames(obj ?? {}).find(k => k === 'ColumnRef')) {
     const columnRef = (obj as OneOfColumnRef).ColumnRef;
     const columnField = columnRef.fields[0];
-    if (Object.getOwnPropertyNames(columnField).find(k => k === 'String')) {
+    if (Object.getOwnPropertyNames(columnField ?? {}).find(k => k === 'String')) {
       return (columnField as OneOfString).String.str;
     }
   }
