@@ -4,7 +4,6 @@ import { parse } from 'pgsql-parser';
 async function sqlParse(req: NextApiRequest, res: NextApiResponse) {
   console.log('Handling request', {
     app: 'parse',
-    env: process.env.IASQL_ENV,
     meta: req.body,
   });
   const t1 = Date.now();
@@ -18,7 +17,6 @@ async function sqlParse(req: NextApiRequest, res: NextApiResponse) {
         t2,
         t1,
       },
-      env: process.env.IASQL_ENV,
     });
     return res.status(200).json(output);
   } catch (e: any) {
