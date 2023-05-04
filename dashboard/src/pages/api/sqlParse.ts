@@ -26,7 +26,7 @@ async function sqlParse(req: NextApiRequest, res: NextApiResponse) {
   try {
     parsedContent = parse(content);
   } catch (e: any) {
-    return res.status(401).json({ message: e?.message ?? 'Unknown error' });
+    return res.status(400).json({ message: e?.message ?? 'Unknown error' });
   }
   console.log('Parsed content', {
     app: 'parse',
