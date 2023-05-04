@@ -372,7 +372,7 @@ const middlewareReducer = async (
       const parseErrorsByStmt: { [stmt: string]: string } = {};
       for (const stmt of statements) {
         try {
-          const sqlParseRes = await fetch(`/api/sqlParse`, {
+          const sqlParseRes = await fetch(`/api/sqlParser/validate`, {
             body: JSON.stringify({ content: stmt, schema }),
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

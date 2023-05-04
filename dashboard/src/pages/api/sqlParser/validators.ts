@@ -1,79 +1,20 @@
+import { DeleteStmt, InsertStmt, SelectStmt, UpdateStmt, RawStmt, OneOfResTarget } from 'libpg-query';
+
+import { Schema } from './validate';
 import {
-  A_Expr,
-  BoolExpr,
-  DeleteStmt,
-  InsertStmt,
-  OneOfA_Expr,
-  OneOfBoolExpr,
-  OneOfColumnRef,
-  OneOfDeleteStmt,
-  OneOfInsertStmt,
-  OneOfRangeVar,
-  OneOfResTarget,
-  OneOfSelectStmt,
-  OneOfString,
-  OneOfUpdateStmt,
-  RawStmt,
-  SelectStmt,
-  UpdateStmt,
-} from 'libpg-query';
-import { NextApiRequest, NextApiResponse } from 'next';
-import { parse } from 'pgsql-parser';
-import { inspect } from 'util';
+  extractAExpr,
+  extractBoolExpr,
+  extractColumnNameIfColumnRef,
+  extractDeleteStmt,
+  extractInsertStmt,
+  extractRelNameIfRangeVar,
+  extractSelectStmt,
+  extractUpdateStmt,
+} from './extractors';
 
-type Schema = {
-  [tableName: string]: { [columnName: string]: { dataType: string; isMandatory: boolean } } & {
-    recordCount: number;
-  };
-};
+// Validate statements
 
-async function sqlParse(req: NextApiRequest, res: NextApiResponse) {
-  console.log('Handling request', {
-    app: 'parse',
-    meta: req.body,
-  });
-  const t1 = Date.now();
-  const { content, schema } = req.body;
-  // try to parse content
-  let parsedContent: { RawStmt: RawStmt }[];
-  try {
-    parsedContent = parse(content);
-  } catch (e: any) {
-    return res.status(400).json({ message: e?.message ?? 'Unknown error' });
-  }
-  console.log('Parsed content', {
-    app: 'parse',
-    meta: parsedContent,
-  });
-  // validate parsed content
-  const rawStmt = parsedContent[0].RawStmt as RawStmt;
-  let validationErr: string = '';
-  try {
-    validationErr = validateStatement(rawStmt, schema);
-  } catch (e: any) {
-    console.error('Error validating statement', {
-      app: 'parse',
-      meta: {
-        error: e?.message ?? 'Unknown error',
-        rawStmt: inspect(rawStmt, { depth: 4 }),
-      },
-    });
-  }
-  const t2 = Date.now();
-  console.log(`Total runtime took ${t2 - t1}`, {
-    app: 'parse',
-    meta: {
-      t2,
-      t1,
-    },
-  });
-  if (validationErr) return res.status(400).json({ message: validationErr });
-  return res.status(200).json(parsedContent);
-}
-
-export default sqlParse;
-
-function validateStatement(rawStmt: RawStmt, schema: Schema): string {
+export function validateStatement(rawStmt: RawStmt, schema: Schema): string {
   let err = '';
   // validate select statement
   const selectStmt = extractSelectStmt(rawStmt.stmt);
@@ -98,7 +39,7 @@ function validateStatement(rawStmt: RawStmt, schema: Schema): string {
   return err;
 }
 
-function validateSelectStmt(selectStmt: SelectStmt, schema: Schema): string {
+export function validateSelectStmt(selectStmt: SelectStmt, schema: Schema): string {
   let err = '';
   const schemaColumns = Object.values(schema)
     .map(t => Object.keys(t))
@@ -130,48 +71,7 @@ function validateSelectStmt(selectStmt: SelectStmt, schema: Schema): string {
   return err;
 }
 
-function extractSelectStmt(obj: any): SelectStmt | undefined {
-  if (Object.getOwnPropertyNames(obj ?? {}).find(k => k === 'SelectStmt')) {
-    return (obj as OneOfSelectStmt).SelectStmt as SelectStmt;
-  }
-  return undefined;
-}
-
-function extractAExpr(obj: any): A_Expr | undefined {
-  if (Object.getOwnPropertyNames(obj ?? {}).find(k => k === 'A_Expr')) {
-    return (obj as OneOfA_Expr).A_Expr as A_Expr;
-  }
-  return undefined;
-}
-
-function extractRelNameIfRangeVar(obj: any): string | undefined {
-  if (Object.getOwnPropertyNames(obj ?? {}).find(k => k === 'RangeVar')) {
-    return (obj as OneOfRangeVar).RangeVar.relname;
-  } else if (Object.getOwnPropertyNames(obj ?? {}).find(k => k === 'relname')) {
-    return obj.relname;
-  }
-  return undefined;
-}
-
-function extractColumnNameIfColumnRef(obj: any): string | undefined {
-  if (Object.getOwnPropertyNames(obj ?? {}).find(k => k === 'ColumnRef')) {
-    const columnRef = (obj as OneOfColumnRef).ColumnRef;
-    const columnField = columnRef.fields[0];
-    if (Object.getOwnPropertyNames(columnField ?? {}).find(k => k === 'String')) {
-      return (columnField as OneOfString).String.str;
-    }
-  }
-  return undefined;
-}
-
-function extractInsertStmt(obj: any): InsertStmt | undefined {
-  if (Object.getOwnPropertyNames(obj ?? {}).find(k => k === 'InsertStmt')) {
-    return (obj as OneOfInsertStmt).InsertStmt as InsertStmt;
-  }
-  return undefined;
-}
-
-function validateInsertStmt(insertStmt: InsertStmt, schema: Schema): string {
+export function validateInsertStmt(insertStmt: InsertStmt, schema: Schema): string {
   let err = '';
   const relName = extractRelNameIfRangeVar(insertStmt.relation);
   const relNameErr = validateRelName(relName, schema);
@@ -184,14 +84,7 @@ function validateInsertStmt(insertStmt: InsertStmt, schema: Schema): string {
   return err;
 }
 
-function extractUpdateStmt(obj: any): UpdateStmt | undefined {
-  if (Object.getOwnPropertyNames(obj ?? {}).find(k => k === 'UpdateStmt')) {
-    return (obj as OneOfUpdateStmt).UpdateStmt as UpdateStmt;
-  }
-  return undefined;
-}
-
-function validateUpdateStmt(updateStmt: UpdateStmt, schema: Schema): string {
+export function validateUpdateStmt(updateStmt: UpdateStmt, schema: Schema): string {
   let err = '';
   const relName = extractRelNameIfRangeVar(updateStmt.relation);
   const relNameErr = validateRelName(relName, schema);
@@ -206,14 +99,7 @@ function validateUpdateStmt(updateStmt: UpdateStmt, schema: Schema): string {
   return err;
 }
 
-function extractDeleteStmt(obj: any): DeleteStmt | undefined {
-  if (Object.getOwnPropertyNames(obj ?? {}).find(k => k === 'DeleteStmt')) {
-    return (obj as OneOfDeleteStmt).DeleteStmt as DeleteStmt;
-  }
-  return undefined;
-}
-
-function validateDeleteStmt(deleteStmt: DeleteStmt, schema: Schema): string {
+export function validateDeleteStmt(deleteStmt: DeleteStmt, schema: Schema): string {
   let err = '';
   const relName = extractRelNameIfRangeVar(deleteStmt.relation);
   const relNameErr = validateRelName(relName, schema);
@@ -223,7 +109,9 @@ function validateDeleteStmt(deleteStmt: DeleteStmt, schema: Schema): string {
   return err;
 }
 
-function validateWhereClause(whereClause: any, schema: Schema): string {
+// Validate expressions
+
+export function validateWhereClause(whereClause: any, schema: Schema): string {
   let err = '';
   if (!whereClause) return err;
   let columns = Object.values(schema)
@@ -253,14 +141,14 @@ function validateWhereClause(whereClause: any, schema: Schema): string {
   return err;
 }
 
-function validateRelName(relName: string | undefined, schema: Schema): string {
+export function validateRelName(relName: string | undefined, schema: Schema): string {
   if (relName && !schema[relName]) {
     return `Table "${relName}" does not exist in schema`;
   }
   return '';
 }
 
-function validateTargetList(
+export function validateTargetList(
   targetList: Array<OneOfResTarget>,
   relevantColumns: string[],
   relName?: string,
@@ -289,11 +177,4 @@ function validateTargetList(
     return columns;
   }
   return err;
-}
-
-function extractBoolExpr(whereClause: any): BoolExpr | undefined {
-  if (Object.getOwnPropertyNames(whereClause ?? {}).find(k => k === 'BoolExpr')) {
-    return (whereClause as OneOfBoolExpr).BoolExpr as BoolExpr;
-  }
-  return undefined;
 }
