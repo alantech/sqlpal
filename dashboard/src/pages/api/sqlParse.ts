@@ -124,22 +124,8 @@ function validateSelectStmt(selectStmt: SelectStmt, schema: Schema): string {
       }
     }
   }
-  const whereClause = selectStmt.whereClause;
-  if (whereClause) {
-    const aExpr = extractAExpr(whereClause);
-    if (aExpr) {
-      const left = aExpr.lexpr;
-      const leftColumnName = extractColumnNameIfColumnRef(left);
-      if (!!leftColumnName && !schemaColumns.includes(leftColumnName)) {
-        return `Column "${leftColumnName}" does not exist in schema`;
-      }
-      const right = aExpr.rexpr;
-      const rightColumnName = extractColumnNameIfColumnRef(right);
-      if (!!rightColumnName && !schemaColumns.includes(rightColumnName)) {
-        return `Column "${rightColumnName}" does not exist in schema`;
-      }
-    }
-  }
+  const whereClauseErr = validateWhereClause(selectStmt.whereClause, schema);
+  if (whereClauseErr) return whereClauseErr;
   return err;
 }
 
@@ -222,22 +208,8 @@ function validateUpdateStmt(updateStmt: UpdateStmt, schema: Schema): string {
       }
     }
   }
-  const whereClause = updateStmt.whereClause;
-  if (whereClause && relName) {
-    const aExpr = extractAExpr(whereClause);
-    if (aExpr) {
-      const left = aExpr.lexpr;
-      const leftColumnName = extractColumnNameIfColumnRef(left);
-      if (!!leftColumnName && !schema[relName][leftColumnName]) {
-        return `Column "${leftColumnName}" does not exist in table "${relName}"`;
-      }
-      const right = aExpr.rexpr;
-      const rightColumnName = extractColumnNameIfColumnRef(right);
-      if (!!rightColumnName && !schema[relName][rightColumnName]) {
-        return `Column "${rightColumnName}" does not exist in table "${relName}"`;
-      }
-    }
-  }
+  const whereClauseErr = validateWhereClause(updateStmt.whereClause, schema);
+  if (whereClauseErr) return whereClauseErr;
   return err;
 }
 
@@ -254,20 +226,28 @@ function validateDeleteStmt(deleteStmt: DeleteStmt, schema: Schema): string {
   if (relName && !schema[relName]) {
     return `Table "${relName}" does not exist in schema`;
   }
-  const whereClause = deleteStmt.whereClause;
-  if (whereClause && relName) {
-    const aExpr = extractAExpr(whereClause);
-    if (aExpr) {
-      const left = aExpr.lexpr;
-      const leftColumnName = extractColumnNameIfColumnRef(left);
-      if (!!leftColumnName && !schema[relName][leftColumnName]) {
-        return `Column "${leftColumnName}" does not exist in table "${relName}"`;
-      }
-      const right = aExpr.rexpr;
-      const rightColumnName = extractColumnNameIfColumnRef(right);
-      if (!!rightColumnName && !schema[relName][rightColumnName]) {
-        return `Column "${rightColumnName}" does not exist in table "${relName}"`;
-      }
+  const whereClauseErr = validateWhereClause(deleteStmt.whereClause, schema);
+  if (whereClauseErr) return whereClauseErr;
+  return err;
+}
+
+function validateWhereClause(whereClause: any, schema: Schema): string {
+  let err = '';
+  if (!whereClause) return err;
+  let columns = Object.values(schema)
+    .map(t => Object.keys(t))
+    .flat();
+  const aExpr = extractAExpr(whereClause);
+  if (aExpr) {
+    const left = aExpr.lexpr;
+    const leftColumnName = extractColumnNameIfColumnRef(left);
+    if (!!leftColumnName && !columns.includes(leftColumnName ?? '')) {
+      return `Column "${leftColumnName}" does not exist in schema`;
+    }
+    const right = aExpr.rexpr;
+    const rightColumnName = extractColumnNameIfColumnRef(right);
+    if (!!rightColumnName && !columns.includes(rightColumnName ?? '')) {
+      return `Column "${rightColumnName}" does not exist in schema`;
     }
   }
   return err;
