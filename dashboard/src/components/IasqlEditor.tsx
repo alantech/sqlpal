@@ -42,6 +42,7 @@ export default function IasqlEditor() {
   } = useAppContext();
   const editorRef = useRef(null as null | ReactAce);
   const prevTabsLenRef = useRef(null as null | number);
+  const suggestionIntervalRef = useRef(null as null | NodeJS.Timeout);
   const queryParams = useQueryParams();
 
   // Handlers
@@ -84,10 +85,18 @@ export default function IasqlEditor() {
   const clearSuggestions = () => {
     const editor = editorRef.current?.editor;
     if (!!editor?.ghostText) {
+      clearSuggestionInterval();
       editor.setGhostText('', editor.getCursorPosition());
-      editor.ghostText = '';
+      editor.ghostText = undefined;
     }
     dispatch({ action: ActionType.ResetSuggestion, data: { tabIdx: editorSelectedTab } });
+  };
+
+  const clearSuggestionInterval = () => {
+    if (suggestionIntervalRef.current) {
+      clearInterval(suggestionIntervalRef.current);
+      suggestionIntervalRef.current = null;
+    }
   };
 
   const onTabChange = (i: number) => {
@@ -200,24 +209,35 @@ export default function IasqlEditor() {
   const handleAfterExec = debounce((eventData: any) => {
     dispatch({
       action: ActionType.ValidateContent,
-      data: { content: editorRef?.current?.editor.getValue(), schema, },
+      data: { content: editorRef?.current?.editor.getValue(), schema },
     });
+    const editor = editorRef?.current?.editor;
     if (eventData.command.name === 'insertstring') {
       // check if latest characters typed have been space, tab, or enter
       const lastChar = eventData.args;
       if (lastChar === ' ' || lastChar === '\t' || lastChar === '\n') return;
 
-      const pos = editorRef?.current?.editor.getCursorPosition();
-      const lines = editorRef?.current?.editor.session.doc.getAllLines() ?? [];
+      const pos = editor?.getCursorPosition();
+      const lines = editor?.session.doc.getAllLines() ?? [];
       let content;
       if (pos && typeof pos.row !== 'undefined' && typeof pos.column !== 'undefined')
         content = lines.slice(0, pos.row).join('\n') + '\n' + lines[pos.row].substring(0, pos.column) ?? '';
-      else content = editorRef?.current?.editor.session.getValue() ?? '';
+      else content = editor?.session.getValue() ?? '';
       // split in chunks and retrieve the last one
       const chunks = content.split(';');
       let finalText;
       if (chunks.length > 0) finalText = chunks[chunks.length - 1];
       if (finalText && finalText.length > 3) {
+        if (editor && !suggestionIntervalRef.current) {
+          suggestionIntervalRef.current = setInterval(async () => {
+            for (let i = 1; i < 4; i++) {
+              if (![undefined, '.', '..', '...'].includes(editor.ghostText)) continue;
+              editor.ghostText = '.'.repeat(i);
+              editor.setGhostText(`  ${editor.ghostText}`, editor.getCursorPosition());
+              await new Promise(resolve => setTimeout(resolve, 600));
+            }
+          }, 500);
+        }
         dispatch({
           action: ActionType.GetSuggestions,
           data: { query: finalText, connString, tabIdx: editorSelectedTab },
@@ -235,6 +255,7 @@ export default function IasqlEditor() {
         const currentPos = editor.getCursorPosition();
         const suggestionValue =
           suggestions.sort((a, b) => (a.score > b.score ? 1 : a.score < b.score ? -1 : 0))?.[0]?.value ?? '';
+        clearSuggestionInterval();
         editor.ghostText = suggestionValue;
         editor.setGhostText(`  ${suggestionValue}`, currentPos);
       }
@@ -249,7 +270,7 @@ export default function IasqlEditor() {
         name: 'tabListener',
         bindKey: { win: 'Tab', mac: 'Tab' },
         exec: function () {
-          if (!!editor?.ghostText) {
+          if (!!editor?.ghostText && !suggestionIntervalRef.current) {
             // Check if it is a comment some we insert in the next line
             const currentPos = editor.getCursorPosition();
             const lineContent = editor?.session.getLine(currentPos.row) ?? '';
@@ -280,6 +301,7 @@ export default function IasqlEditor() {
         bindKey: { win: 'Esc', mac: 'Esc' },
         exec: function () {
           if (!!editor?.ghostText) {
+            clearSuggestionInterval();
             editor.setGhostText('', editor.getCursorPosition());
             clearSuggestions();
           }
