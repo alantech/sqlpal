@@ -7,6 +7,7 @@ import {
   OneOfDeleteStmt,
   OneOfInsertStmt,
   OneOfRangeVar,
+  OneOfResTarget,
   OneOfSelectStmt,
   OneOfString,
   OneOfUpdateStmt,
@@ -100,22 +101,20 @@ function validateSelectStmt(selectStmt: SelectStmt, schema: Schema): string {
   const schemaColumns = Object.values(schema)
     .map(t => Object.keys(t))
     .flat();
-  const resTargetValues = selectStmt.targetList?.map(t => t.ResTarget?.val);
-  const columnNames: string[] = [];
-  for (const resTarget of resTargetValues ?? []) {
-    const columnName = extractColumnNameIfColumnRef(resTarget);
-    if (!!columnName && !schemaColumns.includes(columnName ?? '')) {
-      return `Column "${columnName}" does not exist in schema`;
-    } else if (!!columnName) {
-      columnNames.push(columnName);
-    }
-  }
+  const targetListValidation = validateTargetList(
+    selectStmt.targetList ?? [],
+    schemaColumns,
+    undefined,
+    true,
+  );
+  if (targetListValidation && typeof targetListValidation === 'string') return targetListValidation as string;
+  const columnNames = targetListValidation as string[];
   const fromClause = selectStmt.fromClause?.[0];
   if (fromClause) {
     const relName = extractRelNameIfRangeVar(fromClause);
-    if (relName && !schema[relName]) {
-      return `Table "${relName}" does not exist in schema`;
-    } else if (relName) {
+    const relNameErr = validateRelName(relName, schema);
+    if (relNameErr) return relNameErr;
+    if (relName) {
       const tableColumns = Object.keys(schema[relName]);
       for (const columnName of columnNames ?? []) {
         if (!tableColumns.includes(columnName ?? '')) {
@@ -171,9 +170,9 @@ function extractInsertStmt(obj: any): InsertStmt | undefined {
 function validateInsertStmt(insertStmt: InsertStmt, schema: Schema): string {
   let err = '';
   const relName = extractRelNameIfRangeVar(insertStmt.relation);
-  if (relName && !schema[relName]) {
-    return `Table "${relName}" does not exist in schema`;
-  } else if (relName) {
+  const relNameErr = validateRelName(relName, schema);
+  if (relNameErr) return relNameErr;
+  if (relName) {
     const tableColumns = Object.keys(schema[relName]);
     const resTargetValues = insertStmt.cols?.map(c => c.ResTarget?.val);
     for (const resTargetVal of resTargetValues ?? []) {
@@ -196,17 +195,12 @@ function extractUpdateStmt(obj: any): UpdateStmt | undefined {
 function validateUpdateStmt(updateStmt: UpdateStmt, schema: Schema): string {
   let err = '';
   const relName = extractRelNameIfRangeVar(updateStmt.relation);
-  if (relName && !schema[relName]) {
-    return `Table "${relName}" does not exist in schema`;
-  } else if (relName) {
+  const relNameErr = validateRelName(relName, schema);
+  if (relNameErr) return relNameErr;
+  if (relName) {
     const tableColumns = Object.keys(schema[relName]);
-    const resTargetValues = updateStmt.targetList?.map(t => t.ResTarget?.val);
-    for (const resTargetVal of resTargetValues ?? []) {
-      const columnName = extractColumnNameIfColumnRef(resTargetVal);
-      if (!!columnName && !tableColumns.includes(columnName ?? '')) {
-        return `Column "${columnName}" does not exist in table "${relName}"`;
-      }
-    }
+    const targetListErr = validateTargetList(updateStmt.targetList, tableColumns, relName);
+    if (targetListErr && typeof targetListErr === 'string') return targetListErr as string;
   }
   const whereClauseErr = validateWhereClause(updateStmt.whereClause, schema);
   if (whereClauseErr) return whereClauseErr;
@@ -223,9 +217,8 @@ function extractDeleteStmt(obj: any): DeleteStmt | undefined {
 function validateDeleteStmt(deleteStmt: DeleteStmt, schema: Schema): string {
   let err = '';
   const relName = extractRelNameIfRangeVar(deleteStmt.relation);
-  if (relName && !schema[relName]) {
-    return `Table "${relName}" does not exist in schema`;
-  }
+  const relNameErr = validateRelName(relName, schema);
+  if (relNameErr) return relNameErr;
   const whereClauseErr = validateWhereClause(deleteStmt.whereClause, schema);
   if (whereClauseErr) return whereClauseErr;
   return err;
@@ -249,6 +242,36 @@ function validateWhereClause(whereClause: any, schema: Schema): string {
     if (!!rightColumnName && !columns.includes(rightColumnName ?? '')) {
       return `Column "${rightColumnName}" does not exist in schema`;
     }
+  }
+  return err;
+}
+
+function validateRelName(relName: string | undefined, schema: Schema): string {
+  if (relName && !schema[relName]) {
+    return `Table "${relName}" does not exist in schema`;
+  }
+  return '';
+}
+
+function validateTargetList(
+  targetList: Array<OneOfResTarget>,
+  relevantColumns: string[],
+  relName?: string,
+  returnColumns = false,
+): string | string[] {
+  let err = '';
+  const columns: string[] = [];
+  const resTargetValues = (targetList ?? []).map(t => t.ResTarget?.val).filter(v => !!v);
+  for (const resTargetVal of resTargetValues) {
+    const columnName = extractColumnNameIfColumnRef(resTargetVal);
+    if (!!columnName && !relevantColumns.includes(columnName)) {
+      return `Column "${columnName}" does not exist in ${relName ? `table "${relName}"` : 'schema'}`;
+    } else if (!!columnName) {
+      columns.push(columnName);
+    }
+  }
+  if (returnColumns) {
+    return columns;
   }
   return err;
 }
