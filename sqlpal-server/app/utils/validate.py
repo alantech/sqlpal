@@ -73,8 +73,8 @@ def validate_delete(stmt, columns_by_table_dict):
 
 def _is_valid_where_clause(clause, columns):
     # todo: add proper support for complex `where` clauses with booleans, subqueries, etc.
-    if clause is not None and lexpr in clause and isinstance(clause.lexpr, ast.ColumnRef) and clause.lexpr.fields[0].sval not in columns:
+    if clause is not None and hasattr(clause, 'lexpr') and isinstance(clause.lexpr, ast.ColumnRef) and clause.lexpr.fields[0].sval not in columns:
         return False
-    elif clause is not None and rexpr in clause and isinstance(clause.rexpr, ast.ColumnRef) and clause.rexpr.fields[0].sval not in columns:
+    elif clause is not None and hasattr(clause, 'rexpr') and isinstance(clause.rexpr, ast.ColumnRef) and clause.rexpr.fields[0].sval not in columns:
         return False
     return True
