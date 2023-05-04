@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import os
 import openai
 from .utils.embeddings import select_embeddings
-from .utils.autocomplete import autocomplete_query
+from .utils.autocomplete import autocomplete_query, generate_queries_for_schema
 from .utils.indexes import select_index
 
 from .utils import connect_to_db, get_db_columns_by_table
@@ -40,15 +40,29 @@ def discover():
     tables = db.get_usable_table_names()
     texts = []
     metadatas = []
+    table_queries = {}
+    columns_by_table_dict = get_db_columns_by_table(db)
     for table in tables:
         info = db.get_table_info(table_names=[table])
         info = info.replace('\t', ' ').replace('\n', ' ')
         texts.append(info)
         metadatas.append({'type': 'schema'})
 
+        if os.environ.get('GET_SAMPLE_QUERIES', False):
+            queries = generate_queries_for_schema(info, columns_by_table_dict)
+            if (queries and len(queries) > 0):
+                table_queries[table] = queries
+
     # add to a vector search using embeddings
     docsearch = index_engine.read_index_contents(texts, embeddings, metadatas)
     index_engine.write_index(db, docsearch)
+
+    # add sample queries
+    if os.environ.get('GET_SAMPLE_QUERIES', False):
+        for table, queries in table_queries.items():
+            for query in queries:
+                docsearch.add_texts([query], [{'type': 'query'}])
+
     response = jsonify({"status": 'OK'})
     return response
 
