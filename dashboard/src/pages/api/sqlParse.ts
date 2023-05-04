@@ -1,8 +1,10 @@
 import {
   A_Expr,
+  DeleteStmt,
   InsertStmt,
   OneOfA_Expr,
   OneOfColumnRef,
+  OneOfDeleteStmt,
   OneOfInsertStmt,
   OneOfRangeVar,
   OneOfSelectStmt,
@@ -85,7 +87,11 @@ function validateStatement(rawStmt: RawStmt, schema: Schema): string {
   if (updateStmt) {
     err = validateUpdateStmt(updateStmt, schema);
   }
-  // todo: validate delete statement
+  // validate delete statement
+  const deleteStmt = extractDeleteStmt(rawStmt.stmt);
+  if (deleteStmt) {
+    err = validateDeleteStmt(deleteStmt, schema);
+  }
   return err;
 }
 
@@ -217,6 +223,38 @@ function validateUpdateStmt(updateStmt: UpdateStmt, schema: Schema): string {
     }
   }
   const whereClause = updateStmt.whereClause;
+  if (whereClause && relName) {
+    const aExpr = extractAExpr(whereClause);
+    if (aExpr) {
+      const left = aExpr.lexpr;
+      const leftColumnName = extractColumnNameIfColumnRef(left);
+      if (!!leftColumnName && !schema[relName][leftColumnName]) {
+        return `Column "${leftColumnName}" does not exist in table "${relName}"`;
+      }
+      const right = aExpr.rexpr;
+      const rightColumnName = extractColumnNameIfColumnRef(right);
+      if (!!rightColumnName && !schema[relName][rightColumnName]) {
+        return `Column "${rightColumnName}" does not exist in table "${relName}"`;
+      }
+    }
+  }
+  return err;
+}
+
+function extractDeleteStmt(obj: any): DeleteStmt | undefined {
+  if (Object.getOwnPropertyNames(obj ?? {}).find(k => k === 'DeleteStmt')) {
+    return (obj as OneOfDeleteStmt).DeleteStmt as DeleteStmt;
+  }
+  return undefined;
+}
+
+function validateDeleteStmt(deleteStmt: DeleteStmt, schema: Schema): string {
+  let err = '';
+  const relName = extractRelNameIfRangeVar(deleteStmt.relation);
+  if (relName && !schema[relName]) {
+    return `Table "${relName}" does not exist in schema`;
+  }
+  const whereClause = deleteStmt.whereClause;
   if (whereClause && relName) {
     const aExpr = extractAExpr(whereClause);
     if (aExpr) {
