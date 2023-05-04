@@ -107,7 +107,7 @@ function validateSelectStmt(selectStmt: SelectStmt, schema: Schema): string {
     undefined,
     true,
   );
-  if (targetListValidation && typeof targetListValidation === 'string') return targetListValidation as string;
+  if (targetListValidation && typeof targetListValidation === 'string') return targetListValidation;
   const columnNames = targetListValidation as string[];
   const fromClause = selectStmt.fromClause?.[0];
   if (fromClause) {
@@ -145,6 +145,8 @@ function extractAExpr(obj: any): A_Expr | undefined {
 function extractRelNameIfRangeVar(obj: any): string | undefined {
   if (Object.getOwnPropertyNames(obj ?? {}).find(k => k === 'RangeVar')) {
     return (obj as OneOfRangeVar).RangeVar.relname;
+  } else if (Object.getOwnPropertyNames(obj ?? {}).find(k => k === 'relname')) {
+    return obj.relname;
   }
   return undefined;
 }
@@ -174,13 +176,8 @@ function validateInsertStmt(insertStmt: InsertStmt, schema: Schema): string {
   if (relNameErr) return relNameErr;
   if (relName) {
     const tableColumns = Object.keys(schema[relName]);
-    const resTargetValues = insertStmt.cols?.map(c => c.ResTarget?.val);
-    for (const resTargetVal of resTargetValues ?? []) {
-      const columnName = extractColumnNameIfColumnRef(resTargetVal);
-      if (!!columnName && !tableColumns.includes(columnName ?? '')) {
-        return `Column "${columnName}" does not exist in table "${relName}"`;
-      }
-    }
+    const targetListErr = validateTargetList(insertStmt.cols ?? [], tableColumns, relName);
+    if (typeof targetListErr === 'string' && !!targetListErr) return targetListErr;
   }
   return err;
 }
@@ -260,14 +257,22 @@ function validateTargetList(
   returnColumns = false,
 ): string | string[] {
   let err = '';
-  const columns: string[] = [];
-  const resTargetValues = (targetList ?? []).map(t => t.ResTarget?.val).filter(v => !!v);
-  for (const resTargetVal of resTargetValues) {
-    const columnName = extractColumnNameIfColumnRef(resTargetVal);
-    if (!!columnName && !relevantColumns.includes(columnName)) {
-      return `Column "${columnName}" does not exist in ${relName ? `table "${relName}"` : 'schema'}`;
-    } else if (!!columnName) {
-      columns.push(columnName);
+  const columns: string[] = (targetList ?? []).map(t => t.ResTarget?.name ?? '').filter(v => !!v);
+  if (columns.length) {
+    for (const col of columns) {
+      if (!relevantColumns.includes(col)) {
+        return `Column "${col}" does not exist in ${relName ? `table "${relName}"` : 'schema'}`;
+      }
+    }
+  } else {
+    const resTargetValues = (targetList ?? []).map(t => t.ResTarget?.val).filter(v => !!v);
+    for (const resTargetVal of resTargetValues) {
+      const columnName = extractColumnNameIfColumnRef(resTargetVal);
+      if (!!columnName && !relevantColumns.includes(columnName)) {
+        return `Column "${columnName}" does not exist in ${relName ? `table "${relName}"` : 'schema'}`;
+      } else if (!!columnName) {
+        columns.push(columnName);
+      }
     }
   }
   if (returnColumns) {
