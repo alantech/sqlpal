@@ -344,5 +344,5 @@ def generate_queries_for_schema(schema, columns_by_table_dict):
                 final_queries.append(q)
 
         except Exception as e:
-            logger.exception(e)
+            logger.info("Query not valid: "+q)
     return final_queries
