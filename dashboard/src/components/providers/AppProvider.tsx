@@ -18,6 +18,7 @@ export enum ActionType {
   DiscoverSchema = 'DiscoverSchema',
   SetConnString = 'SetConnString',
   EditContent = 'EditContent',
+  ValidateContent = 'ValidateContent',
   RunningSql = 'RunningSql',
   ShowDisconnect = 'ShowDisconnect',
   ShowConnect = 'ShowConnect',
@@ -69,6 +70,9 @@ interface AppState {
     suggestions: { value: string; meta: string; score: number }[];
   }[];
   forceRun: boolean;
+  parseErrorsByStmt?: {
+    [stmt: string]: string;
+  };
 }
 
 interface AppStore extends AppState {
@@ -121,9 +125,9 @@ const reducer = (state: AppState, payload: Payload): AppState => {
       return { ...state, connString: '', shouldShowDisconnect: false };
     }
     case ActionType.EditContent: {
-      const { content: editorContent } = payload.data;
+      const { content } = payload.data;
       const relevantTab = state.editorTabs[state.editorSelectedTab];
-      relevantTab.content = editorContent;
+      relevantTab.content = content;
       return { ...state };
     }
     case ActionType.RunningSql: {
@@ -221,6 +225,10 @@ const reducer = (state: AppState, payload: Payload): AppState => {
       const tabsCopy = [...state.editorTabs];
       tabsCopy[tabIdx].suggestions = [];
       return { ...state, editorTabs: tabsCopy };
+    }
+    case ActionType.ValidateContent: {
+      const { parseErrorsByStmt } = payload.data;
+      return { ...state, parseErrorsByStmt };
     }
   }
   return state;
@@ -355,6 +363,33 @@ const middlewareReducer = async (
       dispatch({ ...payload, data: { suggestions, tabIdx } });
       break;
     }
+    case ActionType.ValidateContent: {
+      const { content } = payload.data;
+      const statements = content
+        .split(';')
+        .map((s: string) => s.trim())
+        .filter((s: string) => s.length > 0);
+      const parseErrorsByStmt: { [stmt: string]: string } = {};
+      for (const stmt of statements) {
+        try {
+          const sqlParseRes = await fetch(`/api/sqlParse`, {
+            body: JSON.stringify({ content: stmt }),
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          const sqlParseErr = await sqlParseRes.json();
+          if (sqlParseErr.message) {
+            parseErrorsByStmt[stmt] = sqlParseErr.message;
+          } else {
+            parseErrorsByStmt[stmt] = '';
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      dispatch({ ...payload, data: { parseErrorsByStmt } });
+      break;
+    }
     default: {
       dispatch(payload);
     }
@@ -419,6 +454,7 @@ const AppProvider = ({ children }: { children: any }) => {
         editorSelectedTab: state.editorSelectedTab,
         editorTabsCreated: state.editorTabsCreated,
         forceRun: state.forceRun,
+        parseErrorsByStmt: state.parseErrorsByStmt,
         dispatch: customDispatch,
       }}
     >

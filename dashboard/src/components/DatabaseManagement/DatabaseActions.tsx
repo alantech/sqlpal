@@ -23,7 +23,7 @@ export function DatabaseActions() {
   return (
     <HBox alignment={align.end}>
       <HBox width='auto'>
-        <Button look='outline' color='tertiary' onClick={handleDisconnect}>
+        <Button look='outline' color='secondary' onClick={handleDisconnect}>
           <PauseIcon className='mr-1 h-4 w-4' aria-hidden='true' />
           Disconnect
         </Button>

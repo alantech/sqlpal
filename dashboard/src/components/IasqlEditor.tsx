@@ -29,8 +29,17 @@ const ForwardRefEditor = forwardRef((props: IAceEditorProps, ref: any) => (
 ForwardRefEditor.displayName = 'ForwardRefEditor';
 
 export default function IasqlEditor() {
-  const { dispatch, isDarkMode, token, editorTabs, editorSelectedTab, forceRun, connString, schema } =
-    useAppContext();
+  const {
+    dispatch,
+    isDarkMode,
+    token,
+    editorTabs,
+    editorSelectedTab,
+    forceRun,
+    connString,
+    schema,
+    parseErrorsByStmt,
+  } = useAppContext();
   const editorRef = useRef(null as null | ReactAce);
   const prevTabsLenRef = useRef(null as null | number);
   const queryParams = useQueryParams();
@@ -189,6 +198,10 @@ export default function IasqlEditor() {
   }, [editorTabs]);
 
   const handleAfterExec = debounce((eventData: any) => {
+    dispatch({
+      action: ActionType.ValidateContent,
+      data: { content: editorRef?.current?.editor.getValue() },
+    });
     if (eventData.command.name === 'insertstring') {
       // check if latest characters typed have been space, tab, or enter
       const lastChar = eventData.args;
@@ -274,6 +287,42 @@ export default function IasqlEditor() {
       });
     }
   }, [editorRef.current]);
+
+  useEffect(() => {
+    const editor = editorRef?.current?.editor;
+    if (editor) {
+      const isPopupOpen = !!editor?.completer?.popup?.isOpen;
+      const markerErrorClass = 'absolute border-b-2 border-dotted border-rose-500';
+      const markerType = 'text';
+      // Clean-up phase
+      editor.session.clearAnnotations();
+      const currentMarkers = editor.session.getMarkers(true);
+      for (const m of Object.values(currentMarkers ?? {})) {
+        editor.session.removeMarker(m.id);
+      }
+      for (const stmt of Object.keys(parseErrorsByStmt ?? {})) {
+        const parseError = parseErrorsByStmt?.[stmt];
+        // Find the statement in the editor content.
+        // The `find` method automatically selects the range, so we need to clear the selection and restore the cursor position
+        const cursorPos = editor.getCursorPosition();
+        const range = editor.find(stmt, {}, false);
+        editor?.selection?.clearSelection();
+        if (cursorPos) editor.moveCursorToPosition(cursorPos);
+        // If we did not find the statement, we continue
+        if (!range) continue;
+        // Now, if there's a parseError we need to add the annotation and the marker
+        if (parseError) {
+          editor.session.addMarker(range, markerErrorClass, markerType, true);
+          editor.session.setAnnotations([
+            ...editor.session.getAnnotations(),
+            { row: range.start.row, type: 'error', text: parseErrorsByStmt?.[stmt] },
+          ]);
+        }
+      }
+      // If the popup was open, we need to reopen it
+      if (isPopupOpen) editor.completer?.showPopup(editor);
+    }
+  }, [parseErrorsByStmt]);
 
   return (
     <VBox customClasses='mb-3'>

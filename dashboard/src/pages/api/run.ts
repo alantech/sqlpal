@@ -5,7 +5,6 @@ import { parse, deparse } from 'pgsql-parser';
 async function run(req: NextApiRequest, res: NextApiResponse) {
   console.log('Handling request', {
     app: 'run',
-    env: process.env.IASQL_ENV,
     meta: req.body,
   });
   const execTime = 15 * 60 * 1000; // 15 minutes ought to be enough for anyone ;)
@@ -26,7 +25,6 @@ async function run(req: NextApiRequest, res: NextApiResponse) {
         t2,
         t1,
       },
-      env: process.env.IASQL_ENV,
     });
     return res.status(200).json(output);
   } catch (e: any) {
@@ -78,7 +76,6 @@ async function runSql(sql: string, connectionString: string, res: NextApiRespons
     connTemp.on('error', e => {
       console.error('Connection error', {
         app: 'run',
-        env: process.env.IASQL_ENV,
         meta: {
           sql,
           error: e.message,
