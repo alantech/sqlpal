@@ -1,8 +1,10 @@
 import {
   A_Expr,
+  BoolExpr,
   DeleteStmt,
   InsertStmt,
   OneOfA_Expr,
+  OneOfBoolExpr,
   OneOfColumnRef,
   OneOfDeleteStmt,
   OneOfInsertStmt,
@@ -240,6 +242,14 @@ function validateWhereClause(whereClause: any, schema: Schema): string {
       return `Column "${rightColumnName}" does not exist in schema`;
     }
   }
+  const boolExpr = extractBoolExpr(whereClause);
+  if (boolExpr) {
+    const args = boolExpr.args;
+    for (const arg of args) {
+      const argErr = validateWhereClause(arg, schema);
+      if (argErr) return argErr;
+    }
+  }
   return err;
 }
 
@@ -279,4 +289,11 @@ function validateTargetList(
     return columns;
   }
   return err;
+}
+
+function extractBoolExpr(whereClause: any): BoolExpr | undefined {
+  if (Object.getOwnPropertyNames(whereClause ?? {}).find(k => k === 'BoolExpr')) {
+    return (whereClause as OneOfBoolExpr).BoolExpr as BoolExpr;
+  }
+  return undefined;
 }
