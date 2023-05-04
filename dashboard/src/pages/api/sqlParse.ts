@@ -54,7 +54,7 @@ async function sqlParse(req: NextApiRequest, res: NextApiResponse) {
       t1,
     },
   });
-  if (validationErr) res.status(400).json({ message: validationErr });
+  if (validationErr) return res.status(400).json({ message: validationErr });
   return res.status(200).json(parsedContent);
 }
 
