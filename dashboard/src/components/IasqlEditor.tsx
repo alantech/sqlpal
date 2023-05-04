@@ -200,7 +200,7 @@ export default function IasqlEditor() {
   const handleAfterExec = debounce((eventData: any) => {
     dispatch({
       action: ActionType.ValidateContent,
-      data: { content: editorRef?.current?.editor.getValue() },
+      data: { content: editorRef?.current?.editor.getValue(), schema, },
     });
     if (eventData.command.name === 'insertstring') {
       // check if latest characters typed have been space, tab, or enter
