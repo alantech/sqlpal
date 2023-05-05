@@ -30,6 +30,7 @@ const ForwardRefEditor = forwardRef((props: IAceEditorProps, ref: any) => (
 ForwardRefEditor.displayName = 'ForwardRefEditor';
 
 export default function IasqlEditor() {
+  // Get global state
   const {
     dispatch,
     isDarkMode,
@@ -41,11 +42,18 @@ export default function IasqlEditor() {
     schema,
     parseErrorsByStmt,
   } = useAppContext();
+
+  // Refs
   const editorRef = useRef(null as null | ReactAce);
   const prevTabsLenRef = useRef(null as null | number);
   const suggestionIntervalRef = useRef(null as null | NodeJS.Timeout);
+
+  // Custom hooks
   const queryParams = useQueryParams();
-  const [tabToAccept, setTabToAccept] = useLocalStorage('tabToAccept', true);
+  const currentTabToAcceptLS = localStorage.getItem('tabToAccept') === 'true';
+  const currentAutoSuggestLS = localStorage.getItem('autoSuggest') === 'true';
+  const [tabToAcceptSuggestions, setTabToAccept] = useLocalStorage('tabToAccept', currentTabToAcceptLS);
+  const [autoSuggest, setAutoSuggest] = useLocalStorage('autoSuggest', currentAutoSuggestLS);
 
   // Handlers
   const getInitialQuery = useCallback((sql: string | null) => {
@@ -56,9 +64,7 @@ export default function IasqlEditor() {
 
   const handleEditorContentUpdate = useCallback(
     (content: string) => {
-      editorRef?.current?.editor.commands.on('afterExec', eventData => {
-        handleAfterExec(eventData);
-      });
+      handleEditorContentValidation();
       dispatch({ action: ActionType.EditContent, data: { content } });
     },
     [dispatch],
@@ -116,8 +122,9 @@ export default function IasqlEditor() {
   };
 
   useEffect(() => {
-    setTabToAccept(() => true);
-  }, [setTabToAccept]);
+    setTabToAccept(() => currentTabToAcceptLS);
+    setAutoSuggest(() => currentAutoSuggestLS);
+  }, []);
 
   // Set up initial query in editor content
   useEffect(() => {
@@ -212,45 +219,63 @@ export default function IasqlEditor() {
     }
   }, [editorTabs]);
 
-  const handleAfterExec = debounce((eventData: any) => {
+  const handleEditorContentValidation = debounce(() => {
     dispatch({
       action: ActionType.ValidateContent,
       data: { content: editorRef?.current?.editor.getValue(), schema },
     });
-    const editor = editorRef?.current?.editor;
+  }, 500);
+
+  const handleAfterExec = debounce((eventData: any) => {
+    console.log(`after effect being called`);
     if (eventData.command.name === 'insertstring') {
       // check if latest characters typed have been space, tab, or enter
       const lastChar = eventData.args;
-      if (lastChar === ' ' || lastChar === '\t' || lastChar === '\n') return;
-
-      const pos = editor?.getCursorPosition();
-      const lines = editor?.session.doc.getAllLines() ?? [];
-      let content;
-      if (pos && typeof pos.row !== 'undefined' && typeof pos.column !== 'undefined')
-        content = lines.slice(0, pos.row).join('\n') + '\n' + lines[pos.row].substring(0, pos.column) ?? '';
-      else content = editor?.session.getValue() ?? '';
-      // split in chunks and retrieve the last one
-      const chunks = content.split(';');
-      let finalText;
-      if (chunks.length > 0) finalText = chunks[chunks.length - 1];
-      if (finalText && finalText.length > 3) {
-        if (editor && !suggestionIntervalRef.current) {
-          suggestionIntervalRef.current = setInterval(async () => {
-            for (let i = 1; i < 4; i++) {
-              if (![undefined, '.', '..', '...'].includes(editor.ghostText)) continue;
-              editor.ghostText = '.'.repeat(i);
-              editor.setGhostText(`  ${editor.ghostText}`, editor.getCursorPosition());
-              await new Promise(resolve => setTimeout(resolve, 600));
-            }
-          }, 500);
-        }
-        dispatch({
-          action: ActionType.GetSuggestions,
-          data: { query: finalText, connString, tabIdx: editorSelectedTab },
-        });
-      }
+      if (lastChar === '\t' || lastChar === '\n') return;
+      if (!editorRef?.current?.editor?.autoSuggestEnabled) return;
+      maybeDispatchSuggestion();
     }
   }, 500);
+
+  // Calculate final text to be used for autocomplete
+  const getContextForAutoComplete: () => string = () => {
+    const editor = editorRef?.current?.editor;
+    const pos = editor?.getCursorPosition();
+    const lines = editor?.session.doc.getAllLines() ?? [];
+    let content;
+    if (pos && typeof pos.row !== 'undefined' && typeof pos.column !== 'undefined')
+      content = lines.slice(0, pos.row).join('\n') + '\n' + lines[pos.row].substring(0, pos.column) ?? '';
+    else content = editor?.session.getValue() ?? '';
+    // split in chunks and retrieve the last one
+    const chunks = content.split(';');
+    let finalText = '';
+    if (chunks.length > 0) finalText = chunks[chunks.length - 1];
+    return finalText;
+  };
+
+  // Maybe dispatch suggestion
+  const maybeDispatchSuggestion = () => {
+    const editor = editorRef?.current?.editor;
+    const contextText = getContextForAutoComplete();
+    if (contextText && contextText.length > 3) {
+      // Interval to show loading dots
+      if (editor && !suggestionIntervalRef.current) {
+        suggestionIntervalRef.current = setInterval(async () => {
+          for (let i = 1; i < 4; i++) {
+            if (![undefined, '.', '..', '...'].includes(editor.ghostText)) continue;
+            editor.ghostText = '.'.repeat(i);
+            editor.setGhostText(`  ${editor.ghostText}`, editor.getCursorPosition());
+            await new Promise(resolve => setTimeout(resolve, 600));
+          }
+        }, 500);
+      }
+      // Dispatch suggestion
+      dispatch({
+        action: ActionType.GetSuggestions,
+        data: { query: contextText, connString, tabIdx: editorSelectedTab },
+      });
+    }
+  };
 
   useEffect(() => {
     if (editorTabs[editorSelectedTab]?.suggestions?.length) {
@@ -343,14 +368,14 @@ export default function IasqlEditor() {
       }
     }
     let editor = editorRef?.current?.editor;
-    if (editor && tabToAccept) {
+    if (editor && tabToAcceptSuggestions) {
       editor.commands.removeCommand('tabListener');
       editor.commands.addCommand({
         name: 'tabListener',
         bindKey: { win: 'Tab', mac: 'Tab' },
         exec: handleSuggestionAcceptance,
       });
-    } else if (editor && !tabToAccept) {
+    } else if (editor && !tabToAcceptSuggestions) {
       editor.commands.removeCommand('tabListener');
       editor.commands.addCommand({
         name: 'tabListener',
@@ -358,7 +383,32 @@ export default function IasqlEditor() {
         exec: handleSuggestionAcceptance,
       });
     }
-  }, [tabToAccept, editorRef.current]);
+  }, [tabToAcceptSuggestions, editorRef.current]);
+
+  useEffect(() => {
+    editorRef?.current?.editor?.commands.on('afterExec', eventData => {
+      handleAfterExec(eventData);
+    });
+  }, [editorRef?.current]);
+
+  useEffect(() => {
+    let editor = editorRef?.current?.editor;
+    if (editor && autoSuggest) {
+      editor.commands.removeCommand('autoSuggestListener');
+      // lets abuse the editor object to store the autoSuggest
+      editor.autoSuggestEnabled = autoSuggest;
+    } else if (editor && !autoSuggest) {
+      editor.commands.removeCommand('autoSuggestListener');
+      editor.commands.addCommand({
+        name: 'autoSuggestListener',
+        bindKey: { win: 'Ctrl-Space', mac: 'Ctrl-Space' },
+        exec: () => {
+          maybeDispatchSuggestion();
+        },
+      });
+      editor.autoSuggestEnabled = autoSuggest;
+    }
+  }, [autoSuggest, editorRef.current]);
 
   return (
     <VBox customClasses='mb-3'>
