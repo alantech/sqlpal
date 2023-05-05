@@ -30,16 +30,16 @@ async function validate(req: NextApiRequest, res: NextApiResponse) {
     meta: parsedContent,
   });
   // validate parsed content
-  const rawStmt = parsedContent[0].RawStmt as RawStmt;
+  const rawStmt = parsedContent?.[0]?.RawStmt as RawStmt | undefined;
   let validationErr: string = '';
   try {
-    validationErr = validateStatement(rawStmt, schema);
+    if (rawStmt) validationErr = validateStatement(rawStmt, schema);
   } catch (e: any) {
     console.error('Error validating statement', {
       app: 'parse',
       meta: {
         error: e?.message ?? 'Unknown error',
-        rawStmt: inspect(rawStmt, { depth: 4 }),
+        rawStmt: JSON.stringify(rawStmt),
       },
     });
   }
