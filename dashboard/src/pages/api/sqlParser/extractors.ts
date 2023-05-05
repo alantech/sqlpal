@@ -74,7 +74,8 @@ export function extractRelNameIfRangeVar(obj: any): string | undefined {
 export function extractColumnNameIfColumnRef(obj: any): string | undefined {
   if (Object.getOwnPropertyNames(obj ?? {}).find(k => k === 'ColumnRef')) {
     const columnRef = (obj as OneOfColumnRef).ColumnRef;
-    const columnField = columnRef.fields[0];
+    // Assuming the last element of the fields array is the column name
+    const columnField = columnRef.fields.pop();
     if (Object.getOwnPropertyNames(columnField ?? {}).find(k => k === 'String')) {
       return (columnField as OneOfString).String.str;
     }

@@ -62,6 +62,7 @@ def discover():
         for table, queries in table_queries.items():
             for query in queries:
                 docsearch.add_texts([query], [{'type': 'query'}])
+    index_engine.write_index(db, docsearch)
 
     response = jsonify({"status": 'OK'})
     return response
