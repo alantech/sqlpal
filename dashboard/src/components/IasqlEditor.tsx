@@ -5,7 +5,6 @@ import debounce from 'lodash/debounce';
 import dynamic from 'next/dynamic';
 
 import useLocalStorage from '@/hooks/useLocalStorage';
-import { useQueryParams } from '@/hooks/useQueryParams';
 
 import QuerySidebar from './QuerySidebar/QuerySidebar';
 import { HBox, align, VBox, Tab } from './common';
@@ -46,30 +45,81 @@ export default function IasqlEditor() {
   // Refs
   const editorRef = useRef(null as null | ReactAce);
   const prevTabsLenRef = useRef(null as null | number);
-  const suggestionIntervalRef = useRef(null as null | NodeJS.Timeout);
+  const loadingDotsRef = useRef(null as null | NodeJS.Timeout);
 
   // Custom hooks
-  const queryParams = useQueryParams();
   const currentTabToAcceptLS = localStorage.getItem('tabToAccept') === 'true';
   const currentAutoSuggestLS = localStorage.getItem('autoSuggest') === 'true';
   const [tabToAcceptSuggestions, setTabToAccept] = useLocalStorage('tabToAccept', currentTabToAcceptLS);
   const [autoSuggest, setAutoSuggest] = useLocalStorage('autoSuggest', currentAutoSuggestLS);
 
-  // Handlers
-  const getInitialQuery = useCallback((sql: string | null) => {
-    let initialQuery = editorTabs?.[editorSelectedTab]?.content ?? 'SELECT * FROM iasql_help();';
-    if (sql && sql.length > 0) initialQuery = sql;
-    return initialQuery;
+  /** TABS */
+  // Tab on change handler
+  const onTabChange = (i: number) => {
+    dispatch({
+      action: ActionType.EditorSelectTab,
+      data: { index: i === editorTabs.length - 1 ? i - 1 : i },
+    });
+  };
+
+  // Tab on close handler
+  const onTabClose = (i: number) => {
+    dispatch({
+      action: ActionType.EditorCloseTab,
+      data: { index: i },
+    });
+  };
+
+  // Handle tab selection
+  useEffect(() => {
+    if (editorTabs.length !== prevTabsLenRef.current) {
+      dispatch({
+        token,
+        action: ActionType.EditorSelectTab,
+        data: {
+          index: editorTabs.length - 2 >= 0 ? editorTabs.length - 2 : 0,
+          forceRun,
+          editorTabs,
+          connString,
+        },
+      });
+    }
+  }, [editorTabs, dispatch, forceRun, connString, token]);
+
+  // Keep track of tab length
+  useEffect(() => {
+    if (!prevTabsLenRef.current || prevTabsLenRef.current !== editorTabs.length) {
+      prevTabsLenRef.current = editorTabs.length;
+    }
+  }, [editorTabs]);
+
+  /** EDITOR */
+
+  // Set up editor theme
+  useEffect(() => {
+    const root = document.documentElement;
+    const observer = new MutationObserver(() => {
+      const isDark = localStorage.getItem('theme') === 'dark';
+      if (isDark && editorRef?.current?.editor?.getTheme() === 'ace/theme/tomorrow') {
+        editorRef?.current?.editor?.setTheme('ace/theme/monokai');
+      } else if (!isDark && editorRef?.current?.editor?.getTheme() === 'ace/theme/monokai') {
+        editorRef?.current?.editor?.setTheme('ace/theme/tomorrow');
+      }
+    });
+    observer.observe(root, { attributes: true });
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+      const isDark = event.matches;
+      editorRef?.current?.editor?.setTheme(isDark ? 'ace/theme/monokai' : 'ace/theme/tomorrow');
+    });
   }, []);
 
-  const handleEditorContentUpdate = useCallback(
-    (content: string) => {
-      handleEditorContentValidation();
-      dispatch({ action: ActionType.EditContent, data: { content } });
-    },
-    [dispatch],
-  );
+  // Set state for local storage values
+  useEffect(() => {
+    setTabToAccept(() => currentTabToAcceptLS);
+    setAutoSuggest(() => currentAutoSuggestLS);
+  }, []);
 
+  // Set up editor command to enable `Ctrl-Enter` to run queries
   const handleQueryToRunUpdate = useCallback(
     (connString: string, tabIdx: number) => {
       const contentToBeRun = editorRef?.current?.editor?.getSelectedText()
@@ -90,55 +140,12 @@ export default function IasqlEditor() {
     [dispatch, token],
   );
 
-  const clearSuggestions = () => {
-    const editor = editorRef.current?.editor;
-    if (!!editor?.ghostText) {
-      clearSuggestionInterval();
-      editor.setGhostText('', editor.getCursorPosition());
-      editor.ghostText = undefined;
-    }
-    dispatch({ action: ActionType.ResetSuggestion, data: { tabIdx: editorSelectedTab } });
-  };
-
-  const clearSuggestionInterval = () => {
-    if (suggestionIntervalRef.current) {
-      clearInterval(suggestionIntervalRef.current);
-      suggestionIntervalRef.current = null;
-    }
-  };
-
-  const onTabChange = (i: number) => {
-    dispatch({
-      action: ActionType.EditorSelectTab,
-      data: { index: i === editorTabs.length - 1 ? i - 1 : i },
-    });
-  };
-
-  const onTabClose = (i: number) => {
-    dispatch({
-      action: ActionType.EditorCloseTab,
-      data: { index: i },
-    });
-  };
-
   useEffect(() => {
-    setTabToAccept(() => currentTabToAcceptLS);
-    setAutoSuggest(() => currentAutoSuggestLS);
-  }, []);
-
-  // Set up initial query in editor content
-  useEffect(() => {
-    handleEditorContentUpdate(getInitialQuery(queryParams.get('sql')));
-  }, [getInitialQuery, handleEditorContentUpdate, queryParams]);
-
-  // Set up command to enable Ctrl-Enter runs
-  const command = {
-    name: 'Run SQL',
-    bindKey: { win: 'Ctrl-Enter', mac: 'Cmd-Enter' },
-    exec: () => handleQueryToRunUpdate(connString, editorSelectedTab),
-  };
-
-  useEffect(() => {
+    const command = {
+      name: 'Run SQL',
+      bindKey: { win: 'Ctrl-Enter', mac: 'Cmd-Enter' },
+      exec: () => handleQueryToRunUpdate(connString, editorSelectedTab),
+    };
     if (editorTabs?.[editorSelectedTab]?.isRunning) {
       editorRef?.current?.editor?.commands?.removeCommand(command);
     } else {
@@ -147,24 +154,24 @@ export default function IasqlEditor() {
     }
   }, [editorTabs, editorSelectedTab, editorRef.current]);
 
-  // Set up editor theme
-  useEffect(() => {
-    const root = document.documentElement;
-    const observer = new MutationObserver(() => {
-      const isDark = localStorage.getItem('theme') === 'dark';
-      if (isDark && editorRef?.current?.editor?.getTheme() === 'ace/theme/tomorrow') {
-        editorRef?.current?.editor?.setTheme('ace/theme/monokai');
-      } else if (!isDark && editorRef?.current?.editor?.getTheme() === 'ace/theme/monokai') {
-        editorRef?.current?.editor?.setTheme('ace/theme/tomorrow');
-      }
-    });
-    observer.observe(root, { attributes: true });
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
-      const isDark = event.matches;
-      editorRef?.current?.editor?.setTheme(isDark ? 'ace/theme/monokai' : 'ace/theme/tomorrow');
-    });
-  }, []);
+  // Set up editor on change handler
+  const handleEditorContentUpdate = useCallback(
+    (content: string) => {
+      handleEditorContentValidation();
+      dispatch({ action: ActionType.EditContent, data: { content } });
+    },
+    [dispatch],
+  );
 
+  // Validate editor content on change
+  const handleEditorContentValidation = debounce(() => {
+    dispatch({
+      action: ActionType.ValidateContent,
+      data: { content: editorRef?.current?.editor.getValue(), schema },
+    });
+  }, 500);
+
+  // Set up editor completers
   useEffect(() => {
     if (editorRef?.current?.editor?.completers.length) {
       // Reset completers
@@ -198,36 +205,16 @@ export default function IasqlEditor() {
     }
   }, [schema, editorRef?.current?.editor]);
 
-  useEffect(() => {
-    if (editorTabs.length !== prevTabsLenRef.current) {
-      dispatch({
-        token,
-        action: ActionType.EditorSelectTab,
-        data: {
-          index: editorTabs.length - 2 >= 0 ? editorTabs.length - 2 : 0,
-          forceRun,
-          editorTabs,
-          connString,
-        },
-      });
-    }
-  }, [editorTabs, dispatch, forceRun, connString, token]);
+  /** SUGGESTIONS */
 
+  // Listen for editor changes to trigger suggestions if enabled
   useEffect(() => {
-    if (!prevTabsLenRef.current || prevTabsLenRef.current !== editorTabs.length) {
-      prevTabsLenRef.current = editorTabs.length;
-    }
-  }, [editorTabs]);
-
-  const handleEditorContentValidation = debounce(() => {
-    dispatch({
-      action: ActionType.ValidateContent,
-      data: { content: editorRef?.current?.editor.getValue(), schema },
+    editorRef?.current?.editor?.commands.on('afterExec', eventData => {
+      handleAfterExec(eventData);
     });
-  }, 500);
+  }, [editorRef?.current]);
 
   const handleAfterExec = debounce((eventData: any) => {
-    console.log(`after effect being called`);
     if (eventData.command.name === 'insertstring') {
       // check if latest characters typed have been space, tab, or enter
       const lastChar = eventData.args;
@@ -236,6 +223,23 @@ export default function IasqlEditor() {
       maybeDispatchSuggestion();
     }
   }, 500);
+
+  // Calculate context for auto complete and dispatch event to get suggestions if needed
+  const maybeDispatchSuggestion = () => {
+    const editor = editorRef?.current?.editor;
+    const contextText = getContextForAutoComplete();
+    if (contextText && contextText.length > 3) {
+      // Interval to show loading dots
+      if (editor && !loadingDotsRef.current) {
+        loadingDotsRef.current = generateLoadingDots(editor);
+      }
+      // Dispatch suggestion
+      dispatch({
+        action: ActionType.GetSuggestions,
+        data: { query: contextText, connString, tabIdx: editorSelectedTab },
+      });
+    }
+  };
 
   // Calculate final text to be used for autocomplete
   const getContextForAutoComplete: () => string = () => {
@@ -253,30 +257,27 @@ export default function IasqlEditor() {
     return finalText;
   };
 
-  // Maybe dispatch suggestion
-  const maybeDispatchSuggestion = () => {
-    const editor = editorRef?.current?.editor;
-    const contextText = getContextForAutoComplete();
-    if (contextText && contextText.length > 3) {
-      // Interval to show loading dots
-      if (editor && !suggestionIntervalRef.current) {
-        suggestionIntervalRef.current = setInterval(async () => {
-          for (let i = 1; i < 4; i++) {
-            if (![undefined, '.', '..', '...'].includes(editor.ghostText)) continue;
-            editor.ghostText = '.'.repeat(i);
-            editor.setGhostText(`  ${editor.ghostText}`, editor.getCursorPosition());
-            await new Promise(resolve => setTimeout(resolve, 600));
-          }
-        }, 500);
+  // Generate loading dots while getting suggestions
+  const generateLoadingDots = (editor: any) => {
+    return setInterval(async () => {
+      for (let i = 1; i < 4; i++) {
+        if (![undefined, '.', '..', '...'].includes(editor.ghostText)) continue;
+        editor.ghostText = '.'.repeat(i);
+        editor.setGhostText(`  ${editor.ghostText}`, editor.getCursorPosition());
+        await new Promise(resolve => setTimeout(resolve, 600));
       }
-      // Dispatch suggestion
-      dispatch({
-        action: ActionType.GetSuggestions,
-        data: { query: contextText, connString, tabIdx: editorSelectedTab },
-      });
+    }, 500);
+  };
+
+  // Remove loading dots when suggestions are received
+  const removeLoadingDots = () => {
+    if (loadingDotsRef.current) {
+      clearInterval(loadingDotsRef.current);
+      loadingDotsRef.current = null;
     }
   };
 
+  // Show suggestions as ghost text
   useEffect(() => {
     if (editorTabs[editorSelectedTab]?.suggestions?.length) {
       const suggestions = editorTabs[editorSelectedTab].suggestions;
@@ -286,70 +287,30 @@ export default function IasqlEditor() {
         const currentPos = editor.getCursorPosition();
         const suggestionValue =
           suggestions.sort((a, b) => (a.score > b.score ? 1 : a.score < b.score ? -1 : 0))?.[0]?.value ?? '';
-        clearSuggestionInterval();
+        removeLoadingDots();
         editor.ghostText = suggestionValue;
         editor.setGhostText(`  ${suggestionValue}`, currentPos);
       }
     }
   }, [editorTabs]);
 
-  useEffect(() => {
-    // lets add a listener for the escape key
-    let editor = editorRef?.current?.editor;
-    if (editor) {
-      editor.commands.addCommand({
-        name: 'escapeListener',
-        bindKey: { win: 'Esc', mac: 'Esc' },
-        exec: function () {
-          if (!!editor?.ghostText) {
-            clearSuggestionInterval();
-            editor.setGhostText('', editor.getCursorPosition());
-            clearSuggestions();
-          }
-        },
-      });
+  // Handler to clear suggestions
+  const clearSuggestions = () => {
+    const editor = editorRef.current?.editor;
+    if (!!editor?.ghostText) {
+      removeLoadingDots();
+      editor.setGhostText('', editor.getCursorPosition());
+      editor.ghostText = undefined;
     }
-  }, [editorRef.current]);
+    dispatch({ action: ActionType.ResetSuggestion, data: { tabIdx: editorSelectedTab } });
+  };
 
-  useEffect(() => {
-    const editor = editorRef?.current?.editor;
-    if (editor) {
-      const isPopupOpen = !!editor?.completer?.popup?.isOpen;
-      const markerErrorClass = 'absolute border-b-2 border-dotted border-rose-500';
-      const markerType = 'text';
-      // Clean-up phase
-      editor.session.clearAnnotations();
-      const currentMarkers = editor.session.getMarkers(true);
-      for (const m of Object.values(currentMarkers ?? {})) {
-        editor.session.removeMarker(m.id);
-      }
-      for (const stmt of Object.keys(parseErrorsByStmt ?? {})) {
-        const parseError = parseErrorsByStmt?.[stmt];
-        // Find the statement in the editor content.
-        // The `find` method automatically selects the range, so we need to clear the selection and restore the cursor position
-        const cursorPos = editor.getCursorPosition();
-        const range = editor.find(stmt, {}, false);
-        editor?.selection?.clearSelection();
-        if (cursorPos) editor.moveCursorToPosition(cursorPos);
-        // If we did not find the statement, we continue
-        if (!range) continue;
-        // Now, if there's a parseError we need to add the annotation and the marker
-        if (parseError) {
-          editor.session.addMarker(range, markerErrorClass, markerType, true);
-          editor.session.setAnnotations([
-            ...editor.session.getAnnotations(),
-            { row: range.start.row, type: 'error', text: parseErrorsByStmt?.[stmt] },
-          ]);
-        }
-      }
-      // If the popup was open, we need to reopen it
-      if (isPopupOpen) editor.completer?.showPopup(editor);
-    }
-  }, [parseErrorsByStmt]);
-
+  // Accepting suggestions will insert the suggestion
+  // It also handles the key binding for accepting suggestions depending on the local storage config.
+  // If tabToAccept is enabled, suggestions will be accepted with tab, if not, will be accepted with ctrl+K
   useEffect(() => {
     function handleSuggestionAcceptance() {
-      if (!!editor?.ghostText && !suggestionIntervalRef.current) {
+      if (!!editor?.ghostText && !loadingDotsRef.current) {
         // Check if it is a comment some we insert in the next line
         const currentPos = editor.getCursorPosition();
         const lineContent = editor?.session.getLine(currentPos.row) ?? '';
@@ -385,12 +346,27 @@ export default function IasqlEditor() {
     }
   }, [tabToAcceptSuggestions, editorRef.current]);
 
+  // Rejecting suggestions will remove the suggestions and clear the ghost text
+  // It also handles the key binding for rejecting suggestions. It will always be ESC
   useEffect(() => {
-    editorRef?.current?.editor?.commands.on('afterExec', eventData => {
-      handleAfterExec(eventData);
-    });
-  }, [editorRef?.current]);
+    let editor = editorRef?.current?.editor;
+    if (editor) {
+      editor.commands.addCommand({
+        name: 'escapeListener',
+        bindKey: { win: 'Esc', mac: 'Esc' },
+        exec: function () {
+          if (!!editor?.ghostText) {
+            removeLoadingDots();
+            editor.setGhostText('', editor.getCursorPosition());
+            clearSuggestions();
+          }
+        },
+      });
+    }
+  }, [editorRef.current]);
 
+  // If auto suggest is not enabled, we need to add a key binding to trigger the suggestions
+  // It will be ctrl+space
   useEffect(() => {
     let editor = editorRef?.current?.editor;
     if (editor && autoSuggest) {
@@ -409,6 +385,46 @@ export default function IasqlEditor() {
       editor.autoSuggestEnabled = autoSuggest;
     }
   }, [autoSuggest, editorRef.current]);
+
+  /** CONTENT VALIDATION */
+
+  // This effect will be triggered when the editor content changes.
+  // It will validate the content and show errors underlining the statements and adding annotations
+  useEffect(() => {
+    const editor = editorRef?.current?.editor;
+    if (editor) {
+      const isPopupOpen = !!editor?.completer?.popup?.isOpen;
+      const markerErrorClass = 'absolute border-b-2 border-dotted border-rose-500';
+      const markerType = 'text';
+      // Clean-up phase
+      editor.session.clearAnnotations();
+      const currentMarkers = editor.session.getMarkers(true);
+      for (const m of Object.values(currentMarkers ?? {})) {
+        editor.session.removeMarker(m.id);
+      }
+      for (const stmt of Object.keys(parseErrorsByStmt ?? {})) {
+        const parseError = parseErrorsByStmt?.[stmt];
+        // Find the statement in the editor content.
+        // The `find` method automatically selects the range, so we need to clear the selection and restore the cursor position
+        const cursorPos = editor.getCursorPosition();
+        const range = editor.find(stmt, {}, false);
+        editor?.selection?.clearSelection();
+        if (cursorPos) editor.moveCursorToPosition(cursorPos);
+        // If we did not find the statement, we continue
+        if (!range) continue;
+        // Now, if there's a parseError we need to add the annotation and the marker
+        if (parseError) {
+          editor.session.addMarker(range, markerErrorClass, markerType, true);
+          editor.session.setAnnotations([
+            ...editor.session.getAnnotations(),
+            { row: range.start.row, type: 'error', text: parseErrorsByStmt?.[stmt] },
+          ]);
+        }
+      }
+      // If the popup was open, we need to reopen it
+      if (isPopupOpen) editor.completer?.showPopup(editor);
+    }
+  }, [parseErrorsByStmt]);
 
   return (
     <VBox customClasses='mb-3'>
