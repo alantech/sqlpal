@@ -343,7 +343,7 @@ export default function IasqlEditor() {
       }
     }
     let editor = editorRef?.current?.editor;
-    if (editor && tabToAccept && tabToAccept) {
+    if (editor && tabToAccept) {
       editor.commands.removeCommand('tabListener');
       editor.commands.addCommand({
         name: 'tabListener',
