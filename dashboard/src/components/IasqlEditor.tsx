@@ -4,6 +4,7 @@ import ReactAce, { IAceEditorProps } from 'react-ace/lib/ace';
 import debounce from 'lodash/debounce';
 import dynamic from 'next/dynamic';
 
+import useLocalStorage from '@/hooks/useLocalStorage';
 import { useQueryParams } from '@/hooks/useQueryParams';
 
 import QuerySidebar from './QuerySidebar/QuerySidebar';
@@ -44,6 +45,7 @@ export default function IasqlEditor() {
   const prevTabsLenRef = useRef(null as null | number);
   const suggestionIntervalRef = useRef(null as null | NodeJS.Timeout);
   const queryParams = useQueryParams();
+  const [tabToAccept, setTabToAccept] = useLocalStorage('tabToAccept', true);
 
   // Handlers
   const getInitialQuery = useCallback((sql: string | null) => {
@@ -112,6 +114,10 @@ export default function IasqlEditor() {
       data: { index: i },
     });
   };
+
+  useEffect(() => {
+    setTabToAccept(() => true);
+  }, [setTabToAccept]);
 
   // Set up initial query in editor content
   useEffect(() => {
@@ -263,36 +269,6 @@ export default function IasqlEditor() {
   }, [editorTabs]);
 
   useEffect(() => {
-    // lets add a listener for the tab key
-    let editor = editorRef?.current?.editor;
-    if (editor) {
-      editor.commands.addCommand({
-        name: 'tabListener',
-        bindKey: { win: 'Tab', mac: 'Tab' },
-        exec: function () {
-          if (!!editor?.ghostText && !suggestionIntervalRef.current) {
-            // Check if it is a comment some we insert in the next line
-            const currentPos = editor.getCursorPosition();
-            const lineContent = editor?.session.getLine(currentPos.row) ?? '';
-            // todo: generalize this to other comment types
-            if (lineContent.startsWith('--')) {
-              editor.insert(`\n${editor.ghostText ?? ''}`);
-            } else {
-              // todo: do not replace the whole line, but only the text before the cursor or define a range. How to calculate it?
-              // replace the text before the cursor with the suggestion
-              const range: any = { start: { row: currentPos.row, column: 0 }, end: currentPos };
-              editor.session.replace(range, editor.ghostText);
-            }
-            clearSuggestions();
-          } else if (editor) {
-            editor.insert(' '.repeat(editor?.getOptions().tabSize ?? 2));
-          }
-        },
-      });
-    }
-  }, [editorRef.current]);
-
-  useEffect(() => {
     // lets add a listener for the escape key
     let editor = editorRef?.current?.editor;
     if (editor) {
@@ -345,6 +321,44 @@ export default function IasqlEditor() {
       if (isPopupOpen) editor.completer?.showPopup(editor);
     }
   }, [parseErrorsByStmt]);
+
+  useEffect(() => {
+    function handleSuggestionAcceptance() {
+      if (!!editor?.ghostText && !suggestionIntervalRef.current) {
+        // Check if it is a comment some we insert in the next line
+        const currentPos = editor.getCursorPosition();
+        const lineContent = editor?.session.getLine(currentPos.row) ?? '';
+        // todo: generalize this to other comment types
+        if (lineContent.startsWith('--')) {
+          editor.insert(`\n${editor.ghostText ?? ''}`);
+        } else {
+          // todo: do not replace the whole line, but only the text before the cursor or define a range. How to calculate it?
+          // replace the text before the cursor with the suggestion
+          const range: any = { start: { row: currentPos.row, column: 0 }, end: currentPos };
+          editor.session.replace(range, editor.ghostText);
+        }
+        clearSuggestions();
+      } else if (editor) {
+        editor.insert(' '.repeat(editor?.getOptions().tabSize ?? 2));
+      }
+    }
+    let editor = editorRef?.current?.editor;
+    if (editor && tabToAccept && tabToAccept) {
+      editor.commands.removeCommand('tabListener');
+      editor.commands.addCommand({
+        name: 'tabListener',
+        bindKey: { win: 'Tab', mac: 'Tab' },
+        exec: handleSuggestionAcceptance,
+      });
+    } else if (editor && !tabToAccept) {
+      editor.commands.removeCommand('tabListener');
+      editor.commands.addCommand({
+        name: 'tabListener',
+        bindKey: { win: 'Ctrl-K', mac: 'Cmd-K' },
+        exec: handleSuggestionAcceptance,
+      });
+    }
+  }, [tabToAccept, editorRef.current]);
 
   return (
     <VBox customClasses='mb-3'>
