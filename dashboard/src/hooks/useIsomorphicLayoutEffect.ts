@@ -1,4 +1,4 @@
-// https://usehooks-ts.com/react-hook/use-local-storage
+// https://usehooks-ts.com/react-hook/use-isomorphic-layout-effect
 import { useLayoutEffect, useEffect } from 'react'
 
 const useIsomorphicLayoutEffect =

@@ -1,4 +1,4 @@
-// https://usehooks-ts.com/react-hook/use-local-storage
+// https://github.com/juliencrn/usehooks-ts/blob/master/src/useEventCallback/useEventCallback.ts
 import { useCallback, useRef } from 'react';
 
 import useIsomorphicLayoutEffect from './useIsomorphicLayoutEffect';
