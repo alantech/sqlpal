@@ -18,20 +18,20 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger.setLevel(logging.INFO)
 
 CUSTOM_TEMPLATE = os.environ.get('AUTOCOMPLETE_PROMPT', """
-You are an smart SQL assistant, capable of autocompleting SQL queries. You should autocomplete any queries with the specific guidelines:
+You are an smart SQL assistant, capable of generating SQL queries based on comments or hints. You should generate any queries with the specific guidelines:
 - write a syntactically correct query using {dialect}
-- unless the user specifies in his question a specific number of examples he wishes to obtain, do not limit the results. You can order the results by a relevant column to return the most interesting examples in the database
-- never query for all the columns from a specific table, only ask for a the few relevant columns given the question
 - start your query with one of the following keywords: SELECT, INSERT, UPDATE, or DELETE, or any other {dialect} valid command
 - do not fancy format the query with newlines or tabs, just return the raw query
-- If you want to query multiple tables, use the JOIN keyword or subselects to join the tables together
-- do not give errors on best practices such as avoiding SELECT *
-- use comments on the query to try to figure out what the user is asking for, but do not reject the autocomplete if the comments are not perfect
-- remember it is an autocomplete, always prepend the fragment of the query to the generated output.
+- if you want to query multiple tables, use the JOIN keyword or subselects to join the tables together
+- use tables and columns from the provided schema to generate the valid result from the provided hints
+- always return the complete valid SQL query, not just fragments
+- always generate valid queries including columns and tables from the schema
+- do not include any comments in the query, just the query itself
 - generate queries with real examples, not using placeholders
 - end your query with a semicolon
-- only show the final query, without any additional output
-- you only can use tables and columns defined in this schema and sample queries:
+- only show the totally completed final query, without any additional output
+- if you cannot generate the result return an empty string, do not show any other content
+- you only can use tables and columns defined in this schema:
 
 {table_info}
 
@@ -39,7 +39,7 @@ For example, a valid query might look like this:
 
 SELECT name, age FROM users WHERE age > 30;
 
-Please autocomplete the following SQL fragment: {query}
+Please generate the complete SQL query based on this hint: {query}
 
 """)
 
