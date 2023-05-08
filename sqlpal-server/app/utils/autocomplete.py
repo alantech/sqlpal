@@ -11,24 +11,27 @@ from langchain.chains.chat_vector_db.prompts import QA_PROMPT
 from pglast import parse_sql, ast
 from .validate import validate_select, validate_insert, validate_update, validate_delete
 import logging
+from difflib import SequenceMatcher
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger.setLevel(logging.INFO)
 
 CUSTOM_TEMPLATE = os.environ.get('AUTOCOMPLETE_PROMPT', """
-You are an smart SQL assistant, capable of autocompleting SQL queries. You should autocomplete any queries with the specific guidelines:
+You are an smart SQL assistant, capable of generating SQL queries based on comments or hints. You should generate any queries with the specific guidelines:
 - write a syntactically correct query using {dialect}
-- unless the user specifies in his question a specific number of examples he wishes to obtain, do not limit the results. You can order the results by a relevant column to return the most interesting examples in the database
-- never query for all the columns from a specific table, only ask for a the few relevant columns given the question
-- start your query with one of the following keywords: SELECT, INSERT, UPDATE, or DELETE, depending on the desired action
-- If you want to query multiple tables, use the JOIN keyword or subselects to join the tables together
-- do not give errors on best practices such as avoiding SELECT *
-- use comments on the query to try to figure out what the user is asking for, but do not reject the autocomplete if the comments are not perfect
-- remember it is an autocomplete, always prepend the fragment of the query to the generated output.
+- start your query with one of the following keywords: SELECT, INSERT, UPDATE, or DELETE, or any other {dialect} valid command
+- do not fancy format the query with newlines or tabs, just return the raw query
+- if you want to query multiple tables, use the JOIN keyword or subselects to join the tables together
+- use tables and columns from the provided schema to generate the valid result from the provided hints
+- always return the complete valid SQL query, not just fragments
+- always generate valid queries including columns and tables from the schema
+- do not include any comments in the query, just the query itself
 - generate queries with real examples, not using placeholders
 - end your query with a semicolon
-- you only can use tables and columns defined in this schema and sample queries:
+- only show the totally completed final query, without any additional output
+- if you cannot generate the result return an empty string, do not show any other content
+- you only can use tables and columns defined in this schema:
 
 {table_info}
 
@@ -36,7 +39,7 @@ For example, a valid query might look like this:
 
 SELECT name, age FROM users WHERE age > 30;
 
-Please autocomplete the following SQL fragment: {query}
+Please generate the complete SQL query based on this hint: {query}
 
 """)
 
@@ -62,6 +65,7 @@ The output needs to be just a JSON list with this format:
 Only provide this list without any additional output.
 """)
 
+MAX_SIMILARITY_RATIO=0.55
 
 def predict(llm, query, docsearch):
     # different search types
@@ -72,7 +76,6 @@ def predict(llm, query, docsearch):
         docs = docsearch.similarity_search(
             query, k=int(os.environ.get('DOCS_TO_RETRIEVE', 5)))
 
-    # before using LLM we can check if docs already contain the query
     for doc in docs:
         if (doc.metadata['type'] == 'query' and doc.page_content):
             # Find the length of the common prefix
@@ -82,8 +85,12 @@ def predict(llm, query, docsearch):
                     break
                 common_prefix_length += 1
 
-                if common_prefix_length >= 6:  # SELECT has 6 chars, minimum prefix needed
-                    return doc.page_content
+                if common_prefix_length >= 6:
+                    # if it is very similar we return it
+                    s = SequenceMatcher(None, query, doc.page_content)
+                    if s.ratio() > MAX_SIMILARITY_RATIO:
+                        # very similar, will match
+                        return doc.page_content
 
     #  no queries stored, go with llm
     prompt = PromptTemplate(
@@ -96,53 +103,9 @@ def predict(llm, query, docsearch):
 
 
 def extract_queries_from_result(result):
-    lines = result.split('\n')
-
-    # Initialize list to store SQL queries
-    queries = []
-
-    # Initialize variables to track current query
-    current_query = ''
-    inside_query = False
-
-    # Loop through each line
-    for line in lines:
-        # Check if line contains a SQL keyword
-        pattern = r"(?i)\b(SELECT|INSERT|UPDATE|DELETE)\b"
-        match = re.search(pattern, line)
-        if match:
-            index = match.start()
-            line = line[index:]
-            # find the pos of the query
-            inside_query = True
-
-        if inside_query:
-            # Append line to current query
-            current_query += ' ' + line
-
-            # Check if query has a semicolon and get the position
-            position = current_query.find(';')
-            if position != -1:
-                stripped_query = current_query[:position + 1]
-                stripped_query = stripped_query.replace('\\', '')
-
-                queries.append(stripped_query.strip())
-
-                current_query = ''
-                inside_query = False
-
-    # If there is only one query and it is not multiline, add it to the list
-    if current_query:
-        # strip the query until ;
-        position = current_query.find(';')
-        if position != -1:
-            stripped_query = current_query[:position + 1]
-            stripped_query = stripped_query.replace('\\', '')
-
-            queries.append(stripped_query.strip())
-
-    # Return list of SQL queries
-    return queries
+    # transform newlines to spaces, and trim
+    result = re.sub(r'\n', ' ', result)
+    return [result.strip()]
 
 
 def autocomplete_chat(query, docsearch):

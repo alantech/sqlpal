@@ -88,7 +88,7 @@ def autocomplete():
         if query:
             # execute query autocompletion
             result = autocomplete_query(
-                query, docsearch, columns_by_table_dict)
+                query.strip(), docsearch, columns_by_table_dict)
             response = jsonify({'output_text': result})
             return response
         else:
