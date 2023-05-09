@@ -42,7 +42,7 @@ export async function run(backendUrl: string, connString: string, sql: string) {
   return resp.json();
 }
 
-export async function getSuggestions(backendUrl: string, connString: string, sql: string) {
+export async function autocomplete(backendUrl: string, connString: string, sql: string) {
   const resp = await post(backendUrl, 'autocomplete', { query: sql, conn_str: connString });
   return resp.json();
 }
