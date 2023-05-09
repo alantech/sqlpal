@@ -9,4 +9,3 @@ flask_cors
 flask_session
 # chromadb
 huggingface_hub
-pglast==5.1
