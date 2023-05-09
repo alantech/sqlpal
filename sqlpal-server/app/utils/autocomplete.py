@@ -29,6 +29,7 @@ You are an smart SQL assistant, capable of generating SQL queries based on comme
 - generate queries with real examples, not using placeholders
 - end your query with a semicolon
 - only show the totally completed final query, without any additional output
+- generate only one query
 - if you cannot generate the result return an empty string, do not show any other content
 - you only can use tables and columns defined in this schema:
 
@@ -103,17 +104,14 @@ def predict(llm, query, docsearch):
 
 
 def extract_queries_from_result(result):
-    try:
-        res_dict = loads(result)
-    except:
-        res_dict = None
-    if isinstance(res_dict, list):
-        result = [re.sub(r'\n', ' ', r).strip() for r in res_dict]
-        return result
+    # transform newlines to spaces, and trim
+    result = re.sub(r'\n', ' ', result)
+    if len(result)>0:
+        if ";" in result:
+            query = result.split(";")[0]
+        return [query.strip()+";"]
     else:
-        result = re.sub(r'\n', ' ', result)
-        return [result.strip()]
-
+        return [""]
 
 def autocomplete_chat(query, docsearch):
     llm = ChatOpenAI(temperature=os.environ.get('TEMPERATURE', 0.9),
