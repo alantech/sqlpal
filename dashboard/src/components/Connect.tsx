@@ -8,7 +8,7 @@ import { ActionType, useAppContext } from './providers/AppProvider';
 export default function Connect() {
   const { dispatch } = useAppContext();
 
-  const [connStr, SetConnStr] = useState('');
+  const [connStr, SetConnStr] = useState('postgres://postgres:sqlpass@localdb:5432/sqlpal');
   const [stack, setStack] = useState(['addconn']);
 
   let nextEnabled = true;
