@@ -1,7 +1,6 @@
 import hashlib
 import logging
 import os
-import re
 from flask import current_app, jsonify, make_response, session
 from langchain import SQLDatabase
 from sqlalchemy.ext.declarative import declarative_base
@@ -39,10 +38,15 @@ def connect_to_db(request):
     else:
         return None, make_response(jsonify({'error': 'No connection string provided'}), 400)
 
-def get_db_columns_by_table(db: SQLDatabase):
+
+def get_schema_dict(db: SQLDatabase):
     tables = db.get_usable_table_names()
-    columns_by_table = {}
+    schema = {}
     for table in tables:
-        columns = [ col.name for tbl in db._metadata.sorted_tables for col in tbl.columns if tbl.name == table ]
-        columns_by_table[table] = columns
-    return columns_by_table
+        columns = [
+            col.name for tbl in db._metadata.sorted_tables for col in tbl.columns if tbl.name == table]
+        for column in columns:
+            if table not in schema:
+                schema[table] = {}
+            schema[table][column] = 1
+    return schema
