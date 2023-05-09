@@ -173,7 +173,7 @@ def autocomplete_selfhosted(query, docsearch):
     return None
 
 
-def autocomplete_query(query, docsearch, columns_by_table_dict):
+def autocomplete_query_suggestions(query, docsearch):
     if os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'chat':
         queries = autocomplete_chat(query, docsearch)
     elif os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'openai':
@@ -182,32 +182,9 @@ def autocomplete_query(query, docsearch, columns_by_table_dict):
         queries = autocomplete_selfhosted(query, docsearch)
     else:
         queries = autocomplete_chat(query, docsearch)
-
     logger.info("Returned queries are: ")
     logger.info(queries)
-
-    final_query = None
-    for q in queries:
-        try:
-            parsed_query_stmt = parse_sql(q)
-            is_valid = True
-            for s in parsed_query_stmt:
-                stmt = s.stmt
-                if isinstance(stmt, ast.SelectStmt):
-                    is_valid = validate_select(stmt, columns_by_table_dict)
-                elif isinstance(stmt, ast.InsertStmt):
-                    is_valid = validate_insert(stmt, columns_by_table_dict)
-                elif isinstance(stmt, ast.UpdateStmt):
-                    is_valid = validate_update(stmt, columns_by_table_dict)
-                elif isinstance(stmt, ast.DeleteStmt):
-                    is_valid = validate_delete(stmt, columns_by_table_dict)
-            if is_valid:
-                final_query = q
-                break
-
-        except Exception as e:
-            logger.exception(e)
-    return final_query
+    return queries
 
 
 def predict_queries(llm, schema):

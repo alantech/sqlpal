@@ -82,14 +82,13 @@ def autocomplete():
 
     embeddings = select_embeddings()
     docsearch = index_engine.read_index(db, embeddings)
-    columns_by_table_dict = get_db_columns_by_table(db)
     if docsearch is not None:
         query = request.json.get('query', None)
         if query:
             # execute query autocompletion
-            result = autocomplete_query(
-                query.strip(), docsearch, columns_by_table_dict)
-            response = jsonify({'output_text': result})
+            result = autocomplete_query_suggestions(
+                query.strip(), docsearch)
+            response = jsonify({'suggestions': result})
             return response
         else:
             return make_response(jsonify({'error': 'No query provided'}), 400)
