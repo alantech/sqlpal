@@ -104,9 +104,16 @@ def predict(llm, query, docsearch):
 
 
 def extract_queries_from_result(result):
-    # transform newlines to spaces, and trim
-    result = re.sub(r'\n', ' ', result)
-    return [result.strip()]
+    try:
+        res_dict = loads(result)
+    except:
+        res_dict = None
+    if isinstance(res_dict, list):
+        result = [re.sub(r'\n', ' ', r).strip() for r in res_dict]
+        return result
+    else:
+        result = re.sub(r'\n', ' ', result)
+        return [result.strip()]
 
 
 def autocomplete_chat(query, docsearch):
