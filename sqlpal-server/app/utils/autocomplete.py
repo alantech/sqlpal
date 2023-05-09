@@ -8,10 +8,9 @@ from langchain.chat_models import ChatOpenAI
 from langchain.llms import OpenAI
 import os
 from langchain.chains.chat_vector_db.prompts import QA_PROMPT
-from pglast import parse_sql, ast
-from .validate import validate_select, validate_insert, validate_update, validate_delete
 import logging
 from difflib import SequenceMatcher
+from json import loads
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
@@ -262,7 +261,7 @@ def queries_selfhosted(schema):
     return None
 
 
-def generate_queries_for_schema(schema, columns_by_table_dict):
+def generate_queries_for_schema(schema, schema_dict):
     if os.environ.get('QUERIES_METHOD', 'chat') == 'chat':
         queries = queries_chat(schema)
     elif os.environ.get('QUERIES_METHOD', 'chat') == 'openai':
@@ -276,21 +275,25 @@ def generate_queries_for_schema(schema, columns_by_table_dict):
     final_queries = []
     for q in queries:
         try:
-            parsed_query_stmt = parse_sql(q.replace('"', ''))
-            is_valid = True
-            for s in parsed_query_stmt:
-                stmt = s.stmt
-                if isinstance(stmt, ast.SelectStmt):
-                    is_valid = validate_select(stmt, columns_by_table_dict)
-                elif isinstance(stmt, ast.InsertStmt):
-                    is_valid = validate_insert(stmt, columns_by_table_dict)
-                elif isinstance(stmt, ast.UpdateStmt):
-                    is_valid = validate_update(stmt, columns_by_table_dict)
-                elif isinstance(stmt, ast.DeleteStmt):
-                    is_valid = validate_delete(stmt, columns_by_table_dict)
-            if is_valid:
-                final_queries.append(q)
-
+            validation_err = validate_query(q, schema_dict)
+            if validation_err is not None:
+                logger.info("Query {} not valid: {}".format(q, validation_err))
+                continue
+            final_queries.append(q)
         except Exception as e:
-            logger.info("Query not valid: "+q)
+            logger.info("validate_query call failed for query: "+q)
+            logger.exception(e)
     return final_queries
+
+
+def validate_query(query, schema_dict):
+    try:
+        request = {'content': query, 'schema': schema_dict}
+        response = requests.post(
+            'http://localhost:9876/api/sqlParser/validate', json=request,)
+        if response.status_code == 400:
+            result = response.json()['message']
+            return result
+    except Exception as e:
+        logger.exception(e)
+    return None
