@@ -230,9 +230,8 @@ export default function IasqlEditor() {
     const contextText = getContextForAutoComplete();
     if (contextText && contextText.length > 3) {
       // Interval to show loading dots
-      if (editor && !loadingDotsRef.current) {
-        loadingDotsRef.current = generateLoadingDots(editor);
-      }
+      if (editor && loadingDotsRef.current) removeLoadingDots(editor);
+      if (editor) loadingDotsRef.current = generateLoadingDots(editor);
       // Dispatch suggestion
       dispatch({
         action: ActionType.GetSuggestions,
@@ -259,27 +258,25 @@ export default function IasqlEditor() {
 
   // Generate loading dots while getting suggestions
   const generateLoadingDots = (editor: any) => {
-    return setInterval(async () => {
-      for (let i = 1; i < 4; i++) {
-        if (![undefined, '.', '..', '...'].includes(editor.ghostText)) continue;
-        editor.ghostText = '.'.repeat(i);
-        editor.setGhostText(`  ${editor.ghostText}`, editor.getCursorPosition());
-        await new Promise(resolve => setTimeout(resolve, 600));
-      }
+    return setInterval(() => {
+      editor.ghostText = editor.ghostText && editor.ghostText.length < 3 ? editor.ghostText + '.' : '.';
+      editor.setGhostText(`  ${editor.ghostText}`, editor.getCursorPosition());
     }, 500);
   };
 
   // Remove loading dots when suggestions are received
-  const removeLoadingDots = () => {
+  const removeLoadingDots = (editor: any) => {
     if (loadingDotsRef.current) {
       clearInterval(loadingDotsRef.current);
       loadingDotsRef.current = null;
+      editor.setGhostText('', editor.getCursorPosition());
+      editor.ghostText = undefined;
     }
   };
 
   // Show suggestions as ghost text
   useEffect(() => {
-    if (editorTabs[editorSelectedTab]?.suggestions?.length) {
+    if (editorTabs[editorSelectedTab]?.suggestions) {
       const suggestions = editorTabs[editorSelectedTab].suggestions;
       let editor = editorRef?.current?.editor;
       let shouldShow = !!suggestions.length;
@@ -287,9 +284,12 @@ export default function IasqlEditor() {
         const currentPos = editor.getCursorPosition();
         const suggestionValue =
           suggestions.sort((a, b) => (a.score > b.score ? 1 : a.score < b.score ? -1 : 0))?.[0]?.value ?? '';
-        removeLoadingDots();
+        removeLoadingDots(editor);
         editor.ghostText = suggestionValue;
         editor.setGhostText(`  ${suggestionValue}`, currentPos);
+      }
+      if (editor && !shouldShow && loadingDotsRef.current) {
+        removeLoadingDots(editor);
       }
     }
   }, [editorTabs]);
@@ -298,7 +298,7 @@ export default function IasqlEditor() {
   const clearSuggestions = () => {
     const editor = editorRef.current?.editor;
     if (!!editor?.ghostText) {
-      removeLoadingDots();
+      removeLoadingDots(editor);
       editor.setGhostText('', editor.getCursorPosition());
       editor.ghostText = undefined;
     }
@@ -356,8 +356,7 @@ export default function IasqlEditor() {
         bindKey: { win: 'Esc', mac: 'Esc' },
         exec: function () {
           if (!!editor?.ghostText) {
-            removeLoadingDots();
-            editor.setGhostText('', editor.getCursorPosition());
+            removeLoadingDots(editor);
             clearSuggestions();
           }
         },

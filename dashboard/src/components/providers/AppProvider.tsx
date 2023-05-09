@@ -217,7 +217,7 @@ const reducer = (state: AppState, payload: Payload): AppState => {
     case ActionType.GetSuggestions: {
       const { suggestions, tabIdx } = payload.data;
       const tabsCopy = [...state.editorTabs];
-      tabsCopy[tabIdx].suggestions = suggestions;
+      tabsCopy[tabIdx].suggestions = [...(suggestions ?? [])];
       return { ...state, editorTabs: tabsCopy };
     }
     case ActionType.ResetSuggestion: {
@@ -353,6 +353,8 @@ const middlewareReducer = async (
         console.log(`suggestions response? `);
         if (suggestionsRes['output_text']) {
           suggestions = [{ value: suggestionsRes['output_text'], meta: 'custom', score: 1000 }];
+        } else {
+          suggestions = [];
         }
       } catch (e: any) {
         // todo: handle error
