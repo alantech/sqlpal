@@ -110,6 +110,22 @@ const gettingStarted = `-- Welcome to SQLPal! Steps to get started:
 -- Happy coding :)
 `;
 
+const validateSql = async (stmt: string, schema: AppState['schema']): Promise<string> => {
+  let validationErr = '';
+  try {
+    const sqlParseRes = await fetch(`/api/sqlParser/validate`, {
+      body: JSON.stringify({ content: stmt, schema }),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const sqlParseErr = await sqlParseRes.json();
+    if (sqlParseErr.message) validationErr = sqlParseErr.message;
+  } catch (e) {
+    console.error(e);
+  }
+  return validationErr;
+};
+
 const reducer = (state: AppState, payload: Payload): AppState => {
   const { error } = payload?.data ?? { error: null };
   if (error) {
@@ -344,15 +360,22 @@ const middlewareReducer = async (
       break;
     }
     case ActionType.GetSuggestions: {
-      const { connString, query, tabIdx } = payload.data;
+      const { connString, query, tabIdx, schema } = payload.data;
       if (!connString) break;
       let suggestions: any[] = [];
       try {
-        console.log(`callig get suggestions `);
-        const suggestionsRes = await DbActions.getSuggestions(palServerUrl, connString, query);
-        console.log(`suggestions response? `);
-        if (suggestionsRes['output_text']) {
-          suggestions = [{ value: suggestionsRes['output_text'], meta: 'custom', score: 1000 }];
+        const autocompleteRes = await DbActions.autocomplete(palServerUrl, connString, query);
+        console.log(JSON.stringify(autocompleteRes));
+        if (autocompleteRes['suggestions'] && Array.isArray(autocompleteRes['suggestions'])) {
+          // validate the suggestions and return the first valid one
+          for (const suggestion of autocompleteRes['suggestions']) {
+            const validationError = await validateSql(suggestion, schema);
+            if (validationError) continue;
+            else {
+              suggestions = [{ value: suggestion, meta: 'custom', score: 1000 }];
+              break;
+            }
+          }
         } else {
           suggestions = [];
         }
@@ -373,21 +396,7 @@ const middlewareReducer = async (
         .filter((s: string) => s.length > 0);
       const parseErrorsByStmt: { [stmt: string]: string } = {};
       for (const stmt of statements) {
-        try {
-          const sqlParseRes = await fetch(`/api/sqlParser/validate`, {
-            body: JSON.stringify({ content: stmt, schema }),
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-          });
-          const sqlParseErr = await sqlParseRes.json();
-          if (sqlParseErr.message) {
-            parseErrorsByStmt[stmt] = sqlParseErr.message;
-          } else {
-            parseErrorsByStmt[stmt] = '';
-          }
-        } catch (e) {
-          console.error(e);
-        }
+        parseErrorsByStmt[stmt] = await validateSql(stmt, schema);
       }
       dispatch({ ...payload, data: { parseErrorsByStmt } });
       break;
