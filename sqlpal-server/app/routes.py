@@ -4,10 +4,10 @@ from dotenv import load_dotenv
 import os
 import openai
 from .utils.embeddings import select_embeddings
-from .utils.autocomplete import autocomplete_query, generate_queries_for_schema
+from .utils.autocomplete import autocomplete_query_suggestions, generate_queries_for_schema
 from .utils.indexes import select_index
 
-from .utils import connect_to_db, get_db_columns_by_table
+from .utils import connect_to_db, get_schema_dict
 import logging
 
 logger = logging.getLogger(__name__)
@@ -41,15 +41,15 @@ def discover():
     texts = []
     metadatas = []
     table_queries = {}
-    columns_by_table_dict = get_db_columns_by_table(db)
-    for table in tables:
+    schema_dict = get_schema_dict(db)
+    for table in [t for t in tables if t not in 'index_content']:
         info = db.get_table_info(table_names=[table])
         info = info.replace('\t', ' ').replace('\n', ' ')
         texts.append(info)
         metadatas.append({'type': 'schema'})
 
         if os.environ.get('GET_SAMPLE_QUERIES', False):
-            queries = generate_queries_for_schema(info, columns_by_table_dict)
+            queries = generate_queries_for_schema(info, schema_dict)
             if (queries and len(queries) > 0):
                 table_queries[table] = queries
 
