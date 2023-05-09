@@ -65,7 +65,8 @@ The output needs to be just a JSON list with this format:
 Only provide this list without any additional output.
 """)
 
-MAX_SIMILARITY_RATIO=0.55
+MAX_SIMILARITY_RATIO = 0.55
+
 
 def predict(llm, query, docsearch):
     # different search types
