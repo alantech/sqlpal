@@ -48,10 +48,12 @@ export default function IasqlEditor() {
   const loadingDotsRef = useRef(null as null | NodeJS.Timeout);
 
   // Custom hooks
-  const currentTabToAcceptLS = localStorage.getItem('tabToAccept') === 'true';
-  const currentAutoSuggestLS = localStorage.getItem('autoSuggest') === 'true';
-  const [tabToAcceptSuggestions, setTabToAccept] = useLocalStorage('tabToAccept', currentTabToAcceptLS);
-  const [autoSuggest, setAutoSuggest] = useLocalStorage('autoSuggest', currentAutoSuggestLS);
+  const tabToAcceptLS = localStorage.getItem('tabToAccept');
+  const isTabToAcceptEnabled = tabToAcceptLS === null ? true : tabToAcceptLS === 'true';
+  const autoSuggestLS = localStorage.getItem('autoSuggest');
+  const isAutoSuggestEnabled = autoSuggestLS === null ? true : autoSuggestLS === 'true';
+  const [tabToAcceptSuggestions, setTabToAccept] = useLocalStorage('tabToAccept', isTabToAcceptEnabled);
+  const [autoSuggest, setAutoSuggest] = useLocalStorage('autoSuggest', isAutoSuggestEnabled);
 
   /** TABS */
   // Tab on change handler
@@ -115,8 +117,8 @@ export default function IasqlEditor() {
 
   // Set state for local storage values
   useEffect(() => {
-    setTabToAccept(() => currentTabToAcceptLS);
-    setAutoSuggest(() => currentAutoSuggestLS);
+    setTabToAccept(() => isTabToAcceptEnabled);
+    setAutoSuggest(() => isAutoSuggestEnabled);
   }, []);
 
   // Set up editor command to enable `Ctrl-Enter` to run queries
