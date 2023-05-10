@@ -65,10 +65,10 @@ The output needs to be just a JSON list with this format:
 Only provide this list without any additional output.
 """)
 
-MAX_SIMILARITY_RATIO = 0.55
+MAX_SIMILARITY_RATIO = os.environ.get('MAX_SIMILARITY_RATIO', 0.55)
 
 
-def predict(llm, query, docsearch):
+def predict(llm, query, docsearch):    
     # different search types
     if (os.environ.get('SEARCH_TYPE', 'similarity') == 'mmr'):
         docs = docsearch.max_marginal_relevance_search(
@@ -99,7 +99,6 @@ def predict(llm, query, docsearch):
     llm_chain = LLMChain(llm=llm, prompt=prompt)
     res = llm_chain.predict(table_info=docs, query=query, dialect='PostgreSQL')
     logger.info("Result from LLM: "+res)
-
     return res
 
 
@@ -108,8 +107,8 @@ def extract_queries_from_result(result):
     result = re.sub(r'\n', ' ', result)
     if len(result)>0:
         if ";" in result:
-            query = result.split(";")[0]
-        return [query.strip()+";"]
+            result = result.split(";")[0]
+        return [result.strip()+";"]
     else:
         return [""]
 

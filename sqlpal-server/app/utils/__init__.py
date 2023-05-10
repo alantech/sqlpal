@@ -4,6 +4,9 @@ import os
 from flask import current_app, jsonify, make_response, session
 from langchain import SQLDatabase
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import Session
+import concurrent.futures
+from sqlalchemy.sql import text
 
 logger = logging.getLogger(__name__)
 
@@ -50,3 +53,34 @@ def get_schema_dict(db: SQLDatabase):
                 schema[table] = {}
             schema[table][column] = 1
     return schema
+
+def analyze_query(db, query):
+    dialect = db.dialect
+    sess = Session(bind=db._engine)
+    if dialect.lower() == 'postgresql':
+        result = sess.execute(text("""EXPLAIN """+query)).fetchall()
+        if len(result)>0 and 'Error' not in result[0][0]:
+            # query has been successfully explained
+            return True
+        return False
+    
+    # no dialect covered, just return as valid
+    return True
+
+def explain_query(db: SQLDatabase, query, timeout):
+    # perform a query explain with a given timeout
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        # Submit the function call to the thread pool
+        future = executor.submit(analyze_query, db, query)
+
+        try:
+            # Wait for the function to complete, or raise a TimeoutError if it takes too long
+            result = future.result(timeout=timeout/1000)
+        except concurrent.futures.TimeoutError:
+            # Cancel the function call if it takes too long
+            logger.info("Analyze took so long, cancelling")
+            future.cancel()
+            return True
+        else:
+            # Process the result
+            return result
