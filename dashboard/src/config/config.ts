@@ -33,7 +33,7 @@ export interface ConfigInterface {
     pgHost: string;
     pgForceSsl: boolean;
     backendUrl: string;
-    palServerUrl: string;
+    serverUrl: string;
   };
 }
 

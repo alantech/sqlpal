@@ -256,7 +256,7 @@ const middlewareReducer = async (
   payload: Payload,
 ) => {
   const { token } = payload;
-  const { backendUrl, palServerUrl } = config?.engine;
+  const { backendUrl, serverUrl } = config?.engine;
   switch (payload.action) {
     case ActionType.SetConnString: {
       const { connString } = payload.data;
@@ -287,7 +287,7 @@ const middlewareReducer = async (
         break;
       }
       try {
-        await DbActions.discoverData(palServerUrl, connString);
+        await DbActions.discoverData(serverUrl, connString);
       } catch (e) {
         console.log(`/discover failed with error: ${e}.`);
       }
@@ -335,7 +335,7 @@ const middlewareReducer = async (
       // add the query to the index
       if (queryRes && queryRes.length > 0) {
         try {
-          await DbActions.addStatement(palServerUrl, connString, queryRes[0].statement ?? '');
+          await DbActions.addStatement(serverUrl, connString, queryRes[0].statement ?? '');
         } catch (e) {
           console.error(e);
         }
@@ -364,7 +364,7 @@ const middlewareReducer = async (
       if (!connString) break;
       let suggestions: any[] = [];
       try {
-        const autocompleteRes = await DbActions.autocomplete(palServerUrl, connString, query);
+        const autocompleteRes = await DbActions.autocomplete(serverUrl, connString, query);
         console.log(JSON.stringify(autocompleteRes));
         if (autocompleteRes['suggestions'] && Array.isArray(autocompleteRes['suggestions'])) {
           // validate the suggestions and return the first valid one

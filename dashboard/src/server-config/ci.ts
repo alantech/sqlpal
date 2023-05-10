@@ -8,6 +8,9 @@ const ci: ConfigInterface = {
     port: 5432,
     forceSSL: false,
   },
+  server: {
+    url: 'http://localhost:8088',
+  },
 };
 
 if (process.env.STRIPE_SECRET_KEY)

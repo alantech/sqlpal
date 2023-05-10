@@ -8,6 +8,9 @@ const test: ConfigInterface = {
     port: 5432,
     forceSSL: false,
   },
+  server: {
+    url: 'http://localhost:8088',
+  },
 };
 
 export default test;
