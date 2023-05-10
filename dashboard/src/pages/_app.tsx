@@ -16,7 +16,7 @@ export default function App({ Component, pageProps }: AppProps) {
       <Head>
         <meta name='viewport' content='width=device-width, initial-scale=1' />
         <meta name='theme-color' content='#000000' />
-        <meta name='description' content='Your pal for SQL, of course using LLM' />
+        <meta name='description' content='SQL editor with AI suggestions based on your database schema' />
         <title>SQLPal</title>
       </Head>
       <AppConfigProvider>
