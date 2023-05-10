@@ -8,7 +8,7 @@ const local: ConfigInterface = {
     pgHost: 'localhost',
     pgForceSsl: false,
     backendUrl: '/api/run',
-    palServerUrl: 'http://localhost:8088',
+    serverUrl: 'api/server',
   },
   posthog: {
     key: 'phc_xvAQWfpHug7G0SuU5P9wwAbvP9ZawgAfIEZ9FUsiarS',
