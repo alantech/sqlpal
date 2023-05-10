@@ -20,6 +20,9 @@ export interface ConfigInterface {
   logDna?: {
     key: string;
   };
+  server?: {
+    url: string;
+  };
 }
 
 export const throwError = (message: string): never => {
