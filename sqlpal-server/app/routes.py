@@ -1,3 +1,4 @@
+import time
 from flask import Blueprint, Flask, jsonify, make_response, request
 from flask_cors import CORS, cross_origin
 from dotenv import load_dotenv
@@ -7,7 +8,7 @@ from .utils.embeddings import select_embeddings
 from .utils.autocomplete import autocomplete_query_suggestions, generate_queries_for_schema
 from .utils.indexes import select_index
 
-from .utils import connect_to_db, get_schema_dict
+from .utils import connect_to_db, explain_query, get_schema_dict
 import logging
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 
 load_dotenv()
 openai.api_key = os.environ.get('OPENAI_API_KEY')
-
+TOTAL_AUTOCOMPLETE_TIME = os.environ.get('TOTAL_AUTOCOMPLETE_TIME', 3)
 
 @api_bp.route('/discover', methods=['OPTIONS', 'POST'])
 @cross_origin(origin='http://localhost:9876', supports_credentials=True)
@@ -49,7 +50,7 @@ def discover():
         metadatas.append({'type': 'schema'})
 
         if os.environ.get('GET_SAMPLE_QUERIES', False):
-            queries = generate_queries_for_schema(info, schema_dict)
+            queries = generate_queries_for_schema(info, schema_dict, db.dialect)
             if (queries and len(queries) > 0):
                 table_queries[table] = queries
 
@@ -74,6 +75,7 @@ def autocomplete():
     if request.method == 'OPTIONS':
         return make_response(jsonify({}), 200)
 
+    st = time.time()
     db, error = connect_to_db(request)
     if error:
         return error
@@ -87,7 +89,17 @@ def autocomplete():
         if query:
             # execute query autocompletion
             result = autocomplete_query_suggestions(
-                query.strip(), docsearch)
+                query.strip(), docsearch, db.dialect)
+            et = time.time()
+            elapsed_time = (et - st)*1000
+            allowed_timeout = TOTAL_AUTOCOMPLETE_TIME*1000 - elapsed_time
+            if allowed_timeout>0 and len(result)>0:
+                # we can trigger the SQL explain, for just the total remainder time
+                valid = explain_query(db, result[0], allowed_timeout)
+                if not valid:
+                    # just return a blank query
+                    response = jsonify({'suggestions': []})
+                    return response
             response = jsonify({'suggestions': result})
             return response
         else:
