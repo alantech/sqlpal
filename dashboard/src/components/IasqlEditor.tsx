@@ -40,6 +40,7 @@ export default function IasqlEditor() {
     connString,
     schema,
     parseErrorsByStmt,
+    dialect,
   } = useAppContext();
 
   // Refs
@@ -169,7 +170,7 @@ export default function IasqlEditor() {
   const handleEditorContentValidation = debounce(() => {
     dispatch({
       action: ActionType.ValidateContent,
-      data: { content: editorRef?.current?.editor.getValue(), schema },
+      data: { content: editorRef?.current?.editor.getValue(), schema, dialect },
     });
   }, 500);
 
@@ -237,7 +238,7 @@ export default function IasqlEditor() {
       // Dispatch suggestion
       dispatch({
         action: ActionType.GetSuggestions,
-        data: { query: contextText, connString, tabIdx: editorSelectedTab },
+        data: { query: contextText, connString, tabIdx: editorSelectedTab, dialect },
       });
     }
   };

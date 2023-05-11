@@ -11,12 +11,15 @@ const useAppContext = () => {
   return useContext(AppContext);
 };
 
+// Following `sql-surveyor`'s convention
+export type SQLDialects = 'PLpgSQL' | 'MYSQL' | 'TSQL';
+
 export enum ActionType {
   InitialLoad = 'InitialLoad',
   Disconnect = 'Disconnect',
   RunSql = 'RunSql',
   DiscoverSchema = 'DiscoverSchema',
-  SetConnString = 'SetConnString',
+  SetDBConfig = 'SetConnString',
   EditContent = 'EditContent',
   ValidateContent = 'ValidateContent',
   RunningSql = 'RunningSql',
@@ -45,6 +48,7 @@ interface AppState {
   oldestVersion?: string;
   latestVersion?: string;
   connString: string;
+  dialect: SQLDialects;
   isRunningSql: boolean;
   databases: any[];
   error: string | null;
@@ -110,11 +114,15 @@ const gettingStarted = `-- Welcome to SQLPal! Steps to get started:
 -- Happy coding :)
 `;
 
-const validateSql = async (stmt: string, schema: AppState['schema']): Promise<string> => {
+const validateSql = async (
+  stmt: string,
+  schema: AppState['schema'],
+  dialect: SQLDialects,
+): Promise<string> => {
   let validationErr = '';
   try {
     const sqlParseRes = await fetch(`/api/sqlParser/validate`, {
-      body: JSON.stringify({ content: stmt, schema }),
+      body: JSON.stringify({ content: stmt, schema, dialect }),
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -226,9 +234,9 @@ const reducer = (state: AppState, payload: Payload): AppState => {
         forceRun: true,
       };
     }
-    case ActionType.SetConnString: {
-      const { connString, schema } = payload.data;
-      return { ...state, connString, schema };
+    case ActionType.SetDBConfig: {
+      const { connString, schema, dialect } = payload.data;
+      return { ...state, connString, schema, dialect };
     }
     case ActionType.GetSuggestions: {
       const { suggestions, tabIdx } = payload.data;
@@ -258,8 +266,8 @@ const middlewareReducer = async (
   const { token } = payload;
   const { backendUrl, serverUrl } = config?.engine;
   switch (payload.action) {
-    case ActionType.SetConnString: {
-      const { connString } = payload.data;
+    case ActionType.SetDBConfig: {
+      const { connString, dialect } = payload.data;
       try {
         const schemaRes = await DbActions.run(backendUrl, connString, initialQuery);
         const schema = {} as {
@@ -280,7 +288,7 @@ const middlewareReducer = async (
           schema[tableName][columnName] = { dataType, isMandatory };
           schema[tableName]['recordCount'] = recordCount;
         });
-        dispatch({ ...payload, data: { connString, schema } });
+        dispatch({ ...payload, data: { connString, schema, dialect } });
       } catch (e: any) {
         const error = e.message ? e.message : `Unexpected error setting connection string`;
         dispatch({ ...payload, data: { error } });
@@ -360,7 +368,7 @@ const middlewareReducer = async (
       break;
     }
     case ActionType.GetSuggestions: {
-      const { connString, query, tabIdx, schema } = payload.data;
+      const { connString, query, tabIdx, schema, dialect } = payload.data;
       if (!connString) break;
       let suggestions: any[] = [];
       try {
@@ -369,7 +377,7 @@ const middlewareReducer = async (
         if (autocompleteRes['suggestions'] && Array.isArray(autocompleteRes['suggestions'])) {
           // validate the suggestions and return the first valid one
           for (const suggestion of autocompleteRes['suggestions']) {
-            const validationError = await validateSql(suggestion, schema);
+            const validationError = await validateSql(suggestion, schema, dialect);
             if (validationError) continue;
             else {
               suggestions = [{ value: suggestion, meta: 'custom', score: 1000 }];
@@ -389,14 +397,14 @@ const middlewareReducer = async (
       break;
     }
     case ActionType.ValidateContent: {
-      const { content, schema } = payload.data;
+      const { content, schema, dialect } = payload.data;
       const statements = content
         .split(';')
         .map((s: string) => s.trim())
         .filter((s: string) => s.length > 0);
       const parseErrorsByStmt: { [stmt: string]: string } = {};
       for (const stmt of statements) {
-        parseErrorsByStmt[stmt] = await validateSql(stmt, schema);
+        parseErrorsByStmt[stmt] = await validateSql(stmt, schema, dialect);
       }
       dispatch({ ...payload, data: { parseErrorsByStmt } });
       break;
@@ -420,6 +428,7 @@ const AppProvider = ({ children }: { children: any }) => {
     shouldShowDisconnect: false,
     shouldShowConnect: false,
     connString: '',
+    dialect: 'PLpgSQL',
     editorSelectedTab: 0,
     editorTabsCreated: 1,
     editorTabs: [
@@ -461,6 +470,7 @@ const AppProvider = ({ children }: { children: any }) => {
         shouldShowDisconnect: state.shouldShowDisconnect,
         shouldShowConnect: state.shouldShowConnect,
         connString: state.connString,
+        dialect: state.dialect,
         editorTabs: state.editorTabs,
         editorSelectedTab: state.editorSelectedTab,
         editorTabsCreated: state.editorTabsCreated,
