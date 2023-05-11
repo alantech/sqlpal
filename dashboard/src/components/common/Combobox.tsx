@@ -62,7 +62,7 @@ export default function Combobox({
                     key={d[accessProp]}
                     className={({ active }) =>
                       `cursor-pointer select-none relative py-2 pl-10 pr-4 ${
-                        active ? 'text-primary bg-teal-600' : 'text-gray-900 dark:text-gray-100'
+                        active ? 'text-white bg-teal-600' : 'text-gray-900 dark:text-gray-100'
                       }`
                     }
                     value={d}
