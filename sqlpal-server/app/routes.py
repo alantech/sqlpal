@@ -50,7 +50,7 @@ def discover():
         metadatas.append({'type': 'schema'})
 
         if os.environ.get('GET_SAMPLE_QUERIES', False):
-            queries = generate_queries_for_schema(info, schema_dict)
+            queries = generate_queries_for_schema(info, schema_dict, db.dialect)
             if (queries and len(queries) > 0):
                 table_queries[table] = queries
 
@@ -89,7 +89,7 @@ def autocomplete():
         if query:
             # execute query autocompletion
             result = autocomplete_query_suggestions(
-                query.strip(), docsearch)
+                query.strip(), docsearch, db.dialect)
             et = time.time()
             elapsed_time = (et - st)*1000
             allowed_timeout = TOTAL_AUTOCOMPLETE_TIME*1000 - elapsed_time
