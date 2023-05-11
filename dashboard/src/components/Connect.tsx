@@ -2,14 +2,31 @@ import { useState } from 'react';
 
 import { LinkIcon } from '@heroicons/react/outline';
 
-import { Input, Label, Step, VBox, Wizard } from './common';
+import { Combobox, Input, Label, Step, VBox, Wizard } from './common';
 import { ActionType, useAppContext } from './providers/AppProvider';
 
 export default function Connect() {
   const { dispatch } = useAppContext();
 
+  // Key should be `keyof typeof SQLDialect` from sql-surveyor
+  const dialects = [
+    {
+      key: 'PLpgSQL',
+      name: 'Postgres',
+    },
+    {
+      key: 'MYSQL',
+      name: 'MySQL',
+    },
+    {
+      key: 'TSQL',
+      name: 'SQL Server',
+    },
+  ];
+
   const [connStr, SetConnStr] = useState('postgres://postgres:sqlpass@localdb:5432/sqlpal');
   const [stack, setStack] = useState(['addconn']);
+  const [selectedDialect, setSelectedDialect] = useState(dialects[0]);
 
   let nextEnabled = true;
   let backEnabled = false;
@@ -54,7 +71,10 @@ export default function Connect() {
         id='addconn'
         onFinish={() => {
           dispatch({ action: ActionType.ShowConnect, data: { showConnect: false } });
-          dispatch({ action: ActionType.SetConnString, data: { connString: connStr } });
+          dispatch({
+            action: ActionType.SetDBConfig,
+            data: { connString: connStr, dialect: selectedDialect.key },
+          });
         }}
       >
         <Label>
@@ -71,6 +91,17 @@ export default function Connect() {
               setValue={SetConnStr}
               placeholder='postgresql://postgres:sqlpass@<your_host_ip>/sqlpal'
             />
+            {/* TODO: The `htmlFor` does not work with Combobox yet */}
+            <Label htmlFor='db-dialect'>Database dialect</Label>
+            {/* TODO: Remove this div wrapper somehow */}
+            <div className='mt-1 flex rounded-md shadow-sm' style={{ zIndex: 999, maxHeight: '50em' }}>
+              <Combobox
+                data={dialects}
+                value={selectedDialect}
+                setValue={setSelectedDialect}
+                accessProp='name'
+              />
+            </div>
           </VBox>
         </form>
       </Step>
