@@ -7,20 +7,25 @@ type Schema = {
   };
 };
 
+interface ValidateRequest {
+  content: string;
+  schema: Schema;
+  dialect: keyof typeof SQLDialect;
+}
+
 async function validate(req: NextApiRequest, res: NextApiResponse) {
   console.log('Handling request', {
     app: 'parse',
     meta: req.body,
   });
   const t1 = Date.now();
-  const { content, schema } = req.body;
+  const body: ValidateRequest = req.body;
   let validationErr: string;
   try {
-    // TODO: make dialect configurable
-    const surveyor = new SQLSurveyor(SQLDialect.PLpgSQL);
-    const parsedSql = surveyor.survey(content);
+    const surveyor = new SQLSurveyor(SQLDialect[body.dialect] ?? SQLDialect.PLpgSQL);
+    const parsedSql = surveyor.survey(body.content);
     console.dir(parsedSql, { depth: null });
-    validationErr = validateParsedSql(parsedSql, schema);
+    validationErr = validateParsedSql(parsedSql, body.schema);
     console.log(`validation error: ${validationErr}`);
   } catch (e: any) {
     return res.status(400).json({ message: e?.message ?? 'Unknown error' });
