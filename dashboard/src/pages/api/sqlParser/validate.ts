@@ -11,6 +11,7 @@ interface ValidateRequest {
   content: string;
   schema: Schema;
   dialect: keyof typeof SQLDialect;
+  fromServer?: boolean;
 }
 
 async function validate(req: NextApiRequest, res: NextApiResponse) {
@@ -22,7 +23,8 @@ async function validate(req: NextApiRequest, res: NextApiResponse) {
   const body: ValidateRequest = req.body;
   let validationErr: string;
   try {
-    const surveyor = new SQLSurveyor(SQLDialect[body.dialect] ?? SQLDialect.PLpgSQL);
+    const dialect = extractDialect(body.dialect, body.fromServer);
+    const surveyor = new SQLSurveyor(SQLDialect[dialect] ?? SQLDialect.PLpgSQL);
     const parsedSql = surveyor.survey(body.content);
     console.dir(parsedSql, { depth: null });
     validationErr = validateParsedSql(parsedSql, body.schema);
@@ -43,6 +45,23 @@ async function validate(req: NextApiRequest, res: NextApiResponse) {
 }
 
 export default validate;
+
+function extractDialect(dialect: string, fromServer = false): keyof typeof SQLDialect {
+  if (fromServer) {
+    // Python sql alchemy dialects are: 'postgresql', 'mysql', 'oracle', 'mssql'
+    switch (dialect) {
+      case 'mysql':
+        return 'MYSQL';
+      case 'oracle':
+        return SQLDialect.PLSQL;
+      case 'mssql':
+        return SQLDialect.TSQL;
+      default:
+        return SQLDialect.PLpgSQL;
+    }
+  }
+  return dialect as keyof typeof SQLDialect;
+}
 
 function validateParsedSql(parsedSql: ParsedSql, schema: Schema): string {
   let errs: string[] = [];
