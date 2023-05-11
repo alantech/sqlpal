@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 import sys
@@ -69,7 +70,7 @@ Only provide this list without any additional output.
 MAX_SIMILARITY_RATIO = os.environ.get('MAX_SIMILARITY_RATIO', 0.55)
 
 
-def predict(llm, query, docsearch):    
+def predict(llm, query, docsearch, dialect):    
     # different search types
     if (os.environ.get('SEARCH_TYPE', 'similarity') == 'mmr'):
         docs = docsearch.max_marginal_relevance_search(
@@ -80,25 +81,18 @@ def predict(llm, query, docsearch):
 
     for doc in docs:
         if (doc.metadata['type'] == 'query' and doc.page_content):
-            # Find the length of the common prefix
-            common_prefix_length = 0
-            for char1, char2 in zip(doc.page_content.strip(), query.strip()):
-                if char1 != char2:
-                    break
-                common_prefix_length += 1
-
-                if common_prefix_length >= 6:
-                    # if it is very similar we return it
-                    s = SequenceMatcher(None, query, doc.page_content)
-                    if s.ratio() > MAX_SIMILARITY_RATIO:
-                        # very similar, will match
-                        return doc.page_content
+            if (doc.page_content.strip().startswith(query.strip())):
+                # if it is very similar we return it
+                s = SequenceMatcher(None, query, doc.page_content)
+                if s.ratio() > MAX_SIMILARITY_RATIO:
+                    # very similar, will match
+                    return doc.page_content
 
     #  no queries stored, go with llm
     prompt = PromptTemplate(
         input_variables=["query", "table_info", "dialect"], template=CUSTOM_TEMPLATE)
     llm_chain = LLMChain(llm=llm, prompt=prompt)
-    res = llm_chain.predict(table_info=docs, query=query, dialect='PostgreSQL')
+    res = llm_chain.predict(table_info=docs, query=query, dialect=dialect)
     logger.info("Result from LLM: "+res)
     return res
 
@@ -113,23 +107,23 @@ def extract_queries_from_result(result):
     else:
         return [""]
 
-def autocomplete_chat(query, docsearch):
+def autocomplete_chat(query, docsearch, dialect):
     llm = ChatOpenAI(temperature=os.environ.get('TEMPERATURE', 0.9),
                      model_name=os.environ.get('LLM_MODEL', 'gpt-3.5-turbo'), n=int(os.environ.get('OPENAI_NUM_ANSWERS', 1)))
-    res = predict(llm, query, docsearch)
+    res = predict(llm, query, docsearch, dialect)
     final_queries = extract_queries_from_result(res)
     return final_queries
 
 
-def autocomplete_openai(query, docsearch):
+def autocomplete_openai(query, docsearch, dialect):
     llm = OpenAI(temperature=os.environ.get('TEMPERATURE', 0.9),
                  model_name=os.environ.get('LLM_MODEL', 'text-davinci-002'), n=int(os.environ.get('OPENAI_NUM_ANSWERS', 1)))
-    res = predict(llm, query, docsearch)
+    res = predict(llm, query, docsearch, dialect)
     final_queries = extract_queries_from_result(res)
     return final_queries
 
 
-def autocomplete_selfhosted(query, docsearch):
+def autocomplete_selfhosted(query, docsearch, dialect):
     # different search types
     if (os.environ.get('SEARCH_TYPE', 'similarity') == 'mmr'):
         docs = docsearch.max_marginal_relevance_search(
@@ -140,7 +134,7 @@ def autocomplete_selfhosted(query, docsearch):
 
     prompt = PromptTemplate(
         input_variables=["query", "table_info", "dialect"], template=CUSTOM_TEMPLATE)
-    query = prompt.format(query=query, table_info=docs, dialect='PostgreSQL')
+    query = prompt.format(query=query, table_info=docs, dialect=dialect)
 
     # issue a request to an external API
     request = {
@@ -178,50 +172,58 @@ def autocomplete_selfhosted(query, docsearch):
     return None
 
 
-def autocomplete_query_suggestions(query, docsearch):
+def autocomplete_query_suggestions(query, docsearch, dialect):
     if os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'chat':
-        queries = autocomplete_chat(query, docsearch)
+        queries = autocomplete_chat(query, docsearch, dialect)
     elif os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'openai':
-        queries = autocomplete_openai(query, docsearch)
+        queries = autocomplete_openai(query, docsearch, dialect)
     elif os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'selfhosted':
-        queries = autocomplete_selfhosted(query, docsearch)
+        queries = autocomplete_selfhosted(query, docsearch, dialect)
     else:
-        queries = autocomplete_chat(query, docsearch)
+        queries = autocomplete_chat(query, docsearch, dialect)
     logger.info("Returned queries are: ")
     logger.info(queries)
     return queries
 
 
-def predict_queries(llm, schema):
+def predict_queries(llm, schema, dialect):
     prompt = PromptTemplate(
         input_variables=["table_info", "dialect"], template=SAMPLE_QUERIES_TEMPLATE)
     llm_chain = LLMChain(llm=llm, prompt=prompt)
-    res = llm_chain.predict(dialect='PostgreSQL', table_info=schema)
+    res = llm_chain.predict(dialect=dialect, table_info=schema)
     logger.info("Result from LLM: "+res)
 
     return res
 
 
-def queries_chat(schema):
+def queries_chat(schema, dialect):
     llm = ChatOpenAI(temperature=os.environ.get('TEMPERATURE', 0.9),
                      model_name=os.environ.get('LLM_QUERIES_MODEL', 'gpt-3.5-turbo'), n=1)
-    res = predict_queries(llm, schema)
-    final_queries = extract_queries_from_result(res)
+    res = predict_queries(llm, schema, dialect)
+
+    try:
+        final_queries = json.loads(res)
+    except:
+        return []
     return final_queries
 
 
-def queries_openai(schema):
+def queries_openai(schema, dialect):
     llm = OpenAI(temperature=os.environ.get('TEMPERATURE', 0.9),
                  model_name=os.environ.get('LLM_QUERIES_MODEL', 'text-davinci-002'), n=1)
-    res = predict_queries(llm, schema)
-    final_queries = extract_queries_from_result(res)
+    res = predict_queries(llm, schema, dialect)
+
+    try:
+        final_queries = json.loads(res)
+    except:
+        return []
     return final_queries
 
 
-def queries_selfhosted(schema):
+def queries_selfhosted(schema, dialect):
     prompt = PromptTemplate(
         input_variables=["table_info", "dialect"], template=SAMPLE_QUERIES_TEMPLATE)
-    query = prompt.format(table_info=schema, dialect='PostgreSQL')
+    query = prompt.format(table_info=schema, dialect=dialect)
 
     # issue a request to an external API
     request = {
@@ -251,7 +253,10 @@ def queries_selfhosted(schema):
         if response.status_code == 200:
             result = response.json()['results'][0]['text']
             logger.info("Result from LLM: "+result)
-            final_queries = extract_queries_from_result(result)
+            try:
+                final_queries = json.loads(result)
+            except:
+                return []
             return final_queries
     except Exception as e:
         logger.exception("Error in autocomplete_selfhosted: "+e)
@@ -259,15 +264,16 @@ def queries_selfhosted(schema):
     return None
 
 
-def generate_queries_for_schema(schema, schema_dict):
+def generate_queries_for_schema(schema, schema_dict, dialect):
+    logger.info("Generating queries for schema: "+schema)
     if os.environ.get('QUERIES_METHOD', 'chat') == 'chat':
-        queries = queries_chat(schema)
+        queries = queries_chat(schema, dialect)
     elif os.environ.get('QUERIES_METHOD', 'chat') == 'openai':
-        queries = queries_openai(schema)
+        queries = queries_openai(schema, dialect)
     elif os.environ.get('QUERIES_METHOD', 'chat') == 'selfhosted':
-        queries = queries_selfhosted(schema)
+        queries = queries_selfhosted(schema, dialect)
     else:
-        queries = queries_chat(schema)
+        queries = queries_chat(schema, dialect)
 
     # validate all queries and return only the accepted ones
     final_queries = []
