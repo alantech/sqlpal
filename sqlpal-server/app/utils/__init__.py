@@ -7,6 +7,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session
 import concurrent.futures
 from sqlalchemy.sql import text
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -84,3 +85,13 @@ def explain_query(db: SQLDatabase, query, timeout):
         else:
             # Process the result
             return result
+
+def extract_queries_from_result(result):
+    # transform newlines to spaces, and trim
+    result = re.sub(r'\n', ' ', result)
+    if len(result)>0:
+        if ";" in result:
+            result = result.split(";")[0]
+        return [result.strip()+";"]
+    else:
+        return [""]

@@ -1,4 +1,5 @@
 import time
+
 from flask import Blueprint, Flask, jsonify, make_response, request
 from flask_cors import CORS, cross_origin
 from dotenv import load_dotenv
@@ -7,6 +8,7 @@ import openai
 from .utils.embeddings import select_embeddings
 from .utils.autocomplete import autocomplete_query_suggestions, generate_queries_for_schema
 from .utils.indexes import select_index
+from .utils.repair import repair_query_suggestions
 
 from .utils import connect_to_db, explain_query, get_schema_dict
 import logging
@@ -22,6 +24,7 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 load_dotenv()
 openai.api_key = os.environ.get('OPENAI_API_KEY')
 TOTAL_AUTOCOMPLETE_TIME = os.environ.get('TOTAL_AUTOCOMPLETE_TIME', 3)
+TOTAL_REPAIR_TIME = os.environ.get('TOTAL_REPAIR_TIME', 10)
 
 @api_bp.route('/discover', methods=['OPTIONS', 'POST'])
 @cross_origin(origin='http://localhost:9876', supports_credentials=True)
@@ -104,6 +107,46 @@ def autocomplete():
             return response
         else:
             return make_response(jsonify({'error': 'No query provided'}), 400)
+    else:
+        return make_response(jsonify({'error': 'Error retrieving index'}), 500)
+
+
+@api_bp.route('/repair', methods=['OPTIONS', 'POST'])
+@cross_origin(origin='http://localhost:9876', supports_credentials=True)
+def repair():
+    if request.method == 'OPTIONS':
+        return make_response(jsonify({}), 200)
+
+    st = time.time()
+    db, error = connect_to_db(request)
+    if error:
+        return error
+
+    index_engine = select_index()
+
+    embeddings = select_embeddings()
+    docsearch = index_engine.read_index(db, embeddings)
+    if docsearch is not None:
+        query = request.json.get('query', None)
+        error_message = request.json.get('error_message', None)
+        if query and error_message:
+            # execute query repair
+            result = repair_query_suggestions(
+                query.strip(), error_message.strip(), docsearch, db.dialect)
+            et = time.time()
+            elapsed_time = (et - st)*1000
+            allowed_timeout = TOTAL_AUTOCOMPLETE_TIME*1000 - elapsed_time
+            if allowed_timeout>0 and len(result)>0:
+                # we can trigger the SQL explain, for just the total remainder time
+                valid = explain_query(db, result[0], allowed_timeout)
+                if not valid:
+                    # just return a blank query
+                    response = jsonify({'suggestions': []})
+                    return response            
+            response = jsonify({'suggestions': result})
+            return response
+        else:
+            return make_response(jsonify({'error': 'No query or error provided'}), 400)
     else:
         return make_response(jsonify({'error': 'Error retrieving index'}), 500)
 
