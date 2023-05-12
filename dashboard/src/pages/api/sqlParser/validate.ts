@@ -60,6 +60,7 @@ function validateParsedQuery(parsedQuery: ParsedQuery, schema: Schema): string[]
   const tableErrors = validateTables(parsedQuery, schema);
   // Check if output columns are part of schema and table
   const outputColumnErrors = validateOutputColumns(parsedQuery, schema);
+  console.log('outputColumnErrors', outputColumnErrors);
   // Check if referenced columns are part of the schema and table
   const referencedColumnErrors = validateReferencedColumns(parsedQuery, schema);
   return errs.concat(queryErrors, tableErrors, outputColumnErrors, referencedColumnErrors);
@@ -88,9 +89,37 @@ function validateTables(parsedQuery: ParsedQuery, schema: Schema): string[] {
 function validateOutputColumns(parsedQuery: ParsedQuery, schema: Schema): string[] {
   let errs: string[] = [];
   const tables = Object.keys(parsedQuery.referencedTables);
+  console.log('tables', tables);
   const columns = parsedQuery.outputColumns;
+  console.log('columns', JSON.stringify(columns));
   for (const column of Object.values(columns)) {
-    if (column.columnName && column.columnName !== '*' && !tables.some(t => schema[t]?.[column.columnName])) {
+    const colTableName = column.tableName;
+    const colTableAlias = column.tableAlias;
+    let colName = column.columnName;
+    const functionRegex = /^\s*\w+\s*\(/;
+    if (colName.match(functionRegex)) {
+      const args = extractArguments(colName, functionRegex);
+      const identifiers = Object.values(parsedQuery.tokens)
+        .filter(t => t.type === 'IDENTIFIER')
+        .map(t => t.value);
+      // todo: clean arguments first in case they have table names or aliases
+      const colsFromArgs = args.filter(a => identifiers.includes(a));
+      console.log('colsFromArgs', colsFromArgs);
+      // todo: col name could be a list of columns
+      colName = colsFromArgs[0];
+    }
+    if (colTableAlias) {
+      colName = colName
+        .split('.')
+        .filter(c => c !== colTableAlias)
+        .join('.');
+    } else if (colTableName) {
+      colName = colName
+        .split('.')
+        .filter(c => c !== colTableName)
+        .join('.');
+    }
+    if (colName && !colName.includes('*') && !tables.some(t => schema[t]?.[colName])) {
       errs.push(`Column "${column.columnName}" does not exist in tables "${tables.join(', ')}"`);
     }
   }
@@ -107,4 +136,26 @@ function validateReferencedColumns(parsedQuery: ParsedQuery, schema: Schema): st
     }
   }
   return errs;
+}
+
+// todo: Explain this function
+// todo: better names
+function extractArguments(functionCall: string, functionRegex: RegExp): string[] {
+  const argumentRegex = /^\s*(\w+)\s*\((.*)\)/g;
+  // Using `any` here since theres a mismatch in the TS return type and the actual return type for `matchAll`
+  const matchArgs: any[][] = Array.from(functionCall.matchAll(argumentRegex));
+  const finalArgs: string[] = [];
+  for (const match of matchArgs) {
+    const args = match[2].split(',');
+    for (const arg of args) {
+      if (arg.match(functionRegex)) {
+        const subArgs = extractArguments(arg, functionRegex);
+        console.log('subArgs', subArgs);
+        finalArgs.push(...subArgs);
+      } else {
+        finalArgs.push(arg);
+      }
+    }
+  }
+  return finalArgs;
 }
