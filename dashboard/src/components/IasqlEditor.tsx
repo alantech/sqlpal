@@ -397,6 +397,7 @@ export default function IasqlEditor() {
       const isPopupOpen = !!editor?.completer?.popup?.isOpen;
       const markerErrorClass = 'absolute border-b-2 border-dotted border-rose-500';
       const markerType = 'text';
+      let range:any;
       // Clean-up phase
       editor.session.clearAnnotations();
       const currentMarkers = editor.session.getMarkers(true);
@@ -408,7 +409,7 @@ export default function IasqlEditor() {
         // Find the statement in the editor content.
         // The `find` method automatically selects the range, so we need to clear the selection and restore the cursor position
         const cursorPos = editor.getCursorPosition();
-        const range = editor.find(stmt, {}, false);
+        range = editor.find(stmt, {}, false);
         editor?.selection?.clearSelection();
         if (cursorPos) editor.moveCursorToPosition(cursorPos);
         // If we did not find the statement, we continue
@@ -419,11 +420,20 @@ export default function IasqlEditor() {
           editor.session.setAnnotations([
             ...editor.session.getAnnotations(),
             { row: range.start.row, type: 'error', text: parseErrorsByStmt?.[stmt] },
+            { row: range.start.row, type: 'info', text: 'Repair' },
+            
           ]);
         }
       }
       // If the popup was open, we need to reopen it
       if (isPopupOpen) editor.completer?.showPopup(editor);
+      editor.on('mousemove', (e: any) => {
+        const position = editor.renderer.pixelToScreenCoordinates(e.clientX, e.clientY);
+        if (position.row >= range.start.row && position.row <= range.end.row && position.column >= range.start.column && position.column <= range.end.column) {
+          console.log("i am in marker");
+        }
+      });
+
     }
   }, [parseErrorsByStmt]);
 
