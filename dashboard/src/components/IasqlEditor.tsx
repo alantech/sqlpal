@@ -1,4 +1,5 @@
 import { forwardRef, useCallback, useEffect, useRef } from 'react';
+import React from 'react';
 import ReactAce, { IAceEditorProps } from 'react-ace/lib/ace';
 
 import debounce from 'lodash/debounce';
@@ -141,6 +142,32 @@ export default function IasqlEditor() {
     },
     [dispatch, token],
   );
+
+  // detect clicks on the editor
+  const handleEditorClick = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.className.includes('ace_error') && target.className.includes('ace_gutter-cell')) {
+      // iterate over all queries that may have an error
+      if (parseErrorsByStmt) {
+        for (let key in parseErrorsByStmt) {
+          let value = parseErrorsByStmt[key];
+          if (value) {
+            // trigger the repair call
+            dispatch({
+              action: ActionType.Repair,
+              data: { query: key, error: value, schema: schema, connString, tabIdx: editorSelectedTab },
+            });
+          }
+        }
+      }
+      editorRef?.current?.editor.session.clearAnnotations();
+      const currentMarkers = editorRef?.current?.editor.session.getMarkers(true);
+      for (const m of Object.values(currentMarkers ?? {})) {
+        editorRef?.current?.editor.session.removeMarker(m.id);
+      }
+    }
+    e.stopPropagation();
+  };
 
   useEffect(() => {
     const command = {
@@ -397,7 +424,7 @@ export default function IasqlEditor() {
       const isPopupOpen = !!editor?.completer?.popup?.isOpen;
       const markerErrorClass = 'absolute border-b-2 border-dotted border-rose-500';
       const markerType = 'text';
-      let range:any;
+      let range: any;
       // Clean-up phase
       editor.session.clearAnnotations();
       const currentMarkers = editor.session.getMarkers(true);
@@ -420,20 +447,12 @@ export default function IasqlEditor() {
           editor.session.setAnnotations([
             ...editor.session.getAnnotations(),
             { row: range.start.row, type: 'error', text: parseErrorsByStmt?.[stmt] },
-            { row: range.start.row, type: 'info', text: 'Repair' },
-            
+            { row: range.start.row, type: 'info', text: '-- Click to repair --' },
           ]);
         }
       }
       // If the popup was open, we need to reopen it
       if (isPopupOpen) editor.completer?.showPopup(editor);
-      editor.on('mousemove', (e: any) => {
-        const position = editor.renderer.pixelToScreenCoordinates(e.clientX, e.clientY);
-        if (position.row >= range.start.row && position.row <= range.end.row && position.column >= range.start.column && position.column <= range.end.column) {
-          console.log("i am in marker");
-        }
-      });
-
     }
   }, [parseErrorsByStmt]);
 
@@ -441,7 +460,7 @@ export default function IasqlEditor() {
     <VBox customClasses='mb-3'>
       <HBox alignment={align.between}>
         <QuerySidebar />
-        <VBox id='tabs-and-editor' customClasses='w-full' height='h-50vh'>
+        <VBox id='tabs-and-editor' customClasses='w-full' height='h-50vh' onClick={handleEditorClick}>
           <Tab
             tabs={editorTabs}
             defaultIndex={editorSelectedTab}
@@ -469,6 +488,7 @@ export default function IasqlEditor() {
               showLineNumbers: true,
               spellcheck: true,
               tabSize: 2,
+              tooltipFollowsMouse: false,
               theme: isDarkMode ? 'ace/theme/monokai' : 'ace/theme/tomorrow',
             }}
           />

@@ -47,12 +47,14 @@ function VBox_(
     alignment = align.around,
     customClasses = '',
     height = 'h-full',
+    onClick,
   }: {
     children: any[] | any;
     id?: string;
     alignment?: align;
     customClasses?: string;
     height?: string;
+    onClick?: (...args: any[]) => void;
   },
   ref: any,
 ) {
@@ -61,6 +63,7 @@ function VBox_(
       className={`${classes} flex-col ${height} content-around ${alignment} ${customClasses}`}
       id={id}
       ref={ref}
+      onClick={onClick}
     >
       {children}
     </div>
