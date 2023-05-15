@@ -323,14 +323,14 @@ const middlewareReducer = async (
         dispatch({ ...payload, data: { error: 'No auth token defined.' } });
         break;
       }
-      const { content, tabIdx, connString } = payload.data;
+      const { content, tabIdx, connString, dialect } = payload.data;
       if (!connString) break;
       let queryRes: any = 'Invalid or empty response';
       let queryError: string = 'Unhandled error in SQL execution';
       dispatch({ action: ActionType.RunningSql, data: { isRunning: true, tabIdx } });
       try {
         if (token && content) {
-          queryRes = await DbActions.run(backendUrl, connString, content);
+          queryRes = await DbActions.run(backendUrl, connString, content, dialect);
         }
       } catch (e: any) {
         if (e.message) {
@@ -351,9 +351,9 @@ const middlewareReducer = async (
       break;
     }
     case ActionType.EditorSelectTab: {
-      const { connString, forceRun, index, editorTabs } = payload.data;
+      const { connString, forceRun, index, editorTabs, dialect } = payload.data;
       const contentToBeRun = editorTabs?.[index]?.content ?? '';
-      if (token && forceRun && contentToBeRun) {
+      if (token && forceRun && contentToBeRun && dialect) {
         middlewareReducer(config, dispatch, {
           token,
           action: ActionType.RunSql,
@@ -361,6 +361,7 @@ const middlewareReducer = async (
             connString,
             content: contentToBeRun,
             tabIdx: index,
+            dialect,
           },
         });
       }

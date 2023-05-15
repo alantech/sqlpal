@@ -37,8 +37,8 @@ async function post(backendUrl: string, endpoint: string, body: any, raw = false
   return resp;
 }
 
-export async function run(backendUrl: string, connString: string, sql: string) {
-  const resp = await post(backendUrl, '', { sql, connString });
+export async function run(backendUrl: string, connString: string, sql: string, dialect: string) {
+  const resp = await post(backendUrl, '', { sql, connString, dialect });
   return resp.json();
 }
 

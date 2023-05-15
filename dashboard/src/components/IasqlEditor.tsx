@@ -84,6 +84,7 @@ export default function IasqlEditor() {
           forceRun,
           editorTabs,
           connString,
+          dialect,
         },
       });
     }
@@ -136,6 +137,7 @@ export default function IasqlEditor() {
             content: contentToBeRun,
             tabIdx,
             connString,
+            dialect,
           },
         });
       }
