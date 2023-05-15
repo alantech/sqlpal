@@ -7,6 +7,10 @@ type Schema = {
   };
 };
 
+// Regex to extract function arguments
+const functionRegex = /^\s*\w+\s*\(/;
+const argumentRegex = /^\s*(\w+)\s*\((.*)\)/g;
+
 async function validate(req: NextApiRequest, res: NextApiResponse) {
   console.log('Handling request', {
     app: 'parse',
@@ -90,37 +94,35 @@ function validateOutputColumns(parsedQuery: ParsedQuery, schema: Schema): string
   let errs: string[] = [];
   const tables = Object.keys(parsedQuery.referencedTables);
   console.log('tables', tables);
-  const columns = parsedQuery.outputColumns;
-  console.log('columns', JSON.stringify(columns));
-  for (const column of Object.values(columns)) {
-    const colTableName = column.tableName;
-    const colTableAlias = column.tableAlias;
-    let colName = column.columnName;
-    const functionRegex = /^\s*\w+\s*\(/;
-    if (colName.match(functionRegex)) {
-      const args = extractArguments(colName, functionRegex);
-      const identifiers = Object.values(parsedQuery.tokens)
-        .filter(t => t.type === 'IDENTIFIER')
-        .map(t => t.value);
-      // todo: clean arguments first in case they have table names or aliases
-      const colsFromArgs = args.filter(a => identifiers.includes(a));
-      console.log('colsFromArgs', colsFromArgs);
-      // todo: col name could be a list of columns
-      colName = colsFromArgs[0];
+  const parsedOutputColumns = parsedQuery.outputColumns;
+  console.log('columns', JSON.stringify(parsedOutputColumns));
+  const identifiers = Object.values(parsedQuery.tokens)
+    .filter(t => t.type === 'IDENTIFIER')
+    .map(t => t.value);
+  for (const parsedOutputColumn of Object.values(parsedOutputColumns)) {
+    let columnNames: string[] = [];
+    const colTableName = tables.includes(parsedOutputColumn.tableName)
+      ? parsedOutputColumn.tableName
+      : undefined;
+    const colTableAlias = parsedOutputColumn.tableAlias;
+    let columnValue = parsedOutputColumn.columnName;
+    if (columnValue.match(functionRegex)) {
+      columnNames.push(...(extractArguments(columnValue) ?? []));
     }
-    if (colTableAlias) {
-      colName = colName
+    // Keep only with `IDENTIFIERS`, removing literals, keywords, etc.
+    columnNames = columnNames.filter(cn => identifiers.includes(cn));
+    // Remove table name and alias from column name
+    columnNames = columnNames.map(cn => {
+      return cn
         .split('.')
-        .filter(c => c !== colTableAlias)
+        .filter(c => c !== colTableName && c !== colTableAlias)
         .join('.');
-    } else if (colTableName) {
-      colName = colName
-        .split('.')
-        .filter(c => c !== colTableName)
-        .join('.');
-    }
-    if (colName && !colName.includes('*') && !tables.some(t => schema[t]?.[colName])) {
-      errs.push(`Column "${column.columnName}" does not exist in tables "${tables.join(', ')}"`);
+    });
+    // Check errors for each column name
+    for (const columnName of columnNames) {
+      if (columnName && !columnName.includes('*') && !tables.some(t => schema[t]?.[columnName])) {
+        errs.push(`Column "${columnName}" does not exist in tables "${tables.join(', ')}"`);
+      }
     }
   }
   return errs;
@@ -138,19 +140,19 @@ function validateReferencedColumns(parsedQuery: ParsedQuery, schema: Schema): st
   return errs;
 }
 
-// todo: Explain this function
-// todo: better names
-function extractArguments(functionCall: string, functionRegex: RegExp): string[] {
-  const argumentRegex = /^\s*(\w+)\s*\((.*)\)/g;
+// Extract arguments from a function call string
+function extractArguments(functionCall: string): string[] {
   // Using `any` here since theres a mismatch in the TS return type and the actual return type for `matchAll`
+  // This will extract the function name in the first group and the arguments in the second group
   const matchArgs: any[][] = Array.from(functionCall.matchAll(argumentRegex));
   const finalArgs: string[] = [];
   for (const match of matchArgs) {
+    // Get argument from second group
     const args = match[2].split(',');
     for (const arg of args) {
+      // It could be a nested function call so we need to extract the arguments from it
       if (arg.match(functionRegex)) {
-        const subArgs = extractArguments(arg, functionRegex);
-        console.log('subArgs', subArgs);
+        const subArgs = extractArguments(arg);
         finalArgs.push(...subArgs);
       } else {
         finalArgs.push(arg);
