@@ -157,7 +157,7 @@ export default function IasqlEditor() {
         const position = editor.getCursorPosition();
         position.column = editor.session.getLine(position.row).length;
         editor.moveCursorTo(position.row, position.column);
-  
+
         editor.setGhostText('...Repairing...', editor.getCursorPosition());
       }
       // iterate over all queries that may have an error
@@ -277,7 +277,7 @@ export default function IasqlEditor() {
       // Dispatch suggestion
       dispatch({
         action: ActionType.GetSuggestions,
-        data: { query: contextText, connString, tabIdx: editorSelectedTab, dialect },
+        data: { query: contextText, connString, tabIdx: editorSelectedTab, schema, dialect },
       });
     }
   };
