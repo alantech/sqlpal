@@ -411,7 +411,7 @@ const middlewareReducer = async (
       break;
     }
     case ActionType.Repair: {
-      const { connString, query, error, tabIdx, schema } = payload.data;
+      const { connString, query, error, tabIdx, schema, dialect } = payload.data;
       if (!connString) break;
       let suggestions: any[] = [];
       try {
@@ -419,7 +419,7 @@ const middlewareReducer = async (
         if (repairRes['suggestions'] && Array.isArray(repairRes['suggestions'])) {
           // validate the suggestions and return the first valid one
           for (const suggestion of repairRes['suggestions']) {
-            const validationError = await validateSql(suggestion, schema);
+            const validationError = await validateSql(suggestion, schema, dialect);
             if (validationError) continue;
             else {
               suggestions = [{ value: suggestion }];
