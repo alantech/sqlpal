@@ -1,6 +1,14 @@
+import { Knex, knex } from 'knex';
+import { OkPacket } from 'mysql';
 import { NextApiRequest, NextApiResponse } from 'next';
 import pg, { QueryResult } from 'pg';
 import { parse, deparse } from 'pgsql-parser';
+
+enum KnexClient {
+  MYSQL = 'mysql',
+  TSQL = 'tedious',
+  PLpgSQL = 'pg',
+}
 
 async function run(req: NextApiRequest, res: NextApiResponse) {
   console.log('Handling request', {
@@ -12,8 +20,8 @@ async function run(req: NextApiRequest, res: NextApiResponse) {
   try {
     const output = await until(
       (async () => {
-        const { connString, sql } = req.body;
-        const out = await runSql(sql, connString, res);
+        const { connString, sql, dialect } = req.body;
+        const out = await runSql(sql, connString, dialect, res);
         return out;
       })(),
       execTime - 100,
@@ -55,9 +63,8 @@ function until<T>(p: Promise<T>, timeout: number): Promise<T> {
   });
 }
 
-async function runSql(sql: string, connectionString: string, res: NextApiResponse) {
+async function runSql(sql: string, connectionString: string, dialect: string, res: NextApiResponse) {
   const out: any = [];
-  let connTemp;
   const stmts = parse(sql);
   for (const stmt of stmts) {
     const dbId = connectionString.split('/').pop();
@@ -65,31 +72,19 @@ async function runSql(sql: string, connectionString: string, res: NextApiRespons
     const password = connectionString.split('/')[2].split(':')[1].split('@')[0];
     const host = connectionString.split('/')[2].split(':')[1].split('@')[1];
     const ssl = connectionString.includes('sslmode=require');
-    connTemp = new pg.Client({
-      database: dbId,
-      user: username,
-      password,
-      host,
-      ssl,
+    const client = knex({
+      client: KnexClient[dialect as keyof typeof KnexClient],
+      connection: {
+        database: dbId,
+        user: username,
+        password,
+        host,
+        ssl,
+      },
     });
-    // Based on https://node-postgres.com/apis/client#error
-    connTemp.on('error', e => {
-      console.error('Connection error', {
-        app: 'run',
-        meta: {
-          sql,
-          error: e.message,
-          stack: e.stack,
-        },
-      });
-      res.status(500).json({
-        error: `Connection interruption while executing query ${sql}`,
-      });
-    });
-    await connTemp.connect();
     const deparsedStmt = deparse(stmt);
     try {
-      const queryRes = await connTemp.query(deparsedStmt);
+      const queryRes = await client.raw(deparsedStmt);
       out.push({
         statement: deparsedStmt,
         queryRes,
@@ -97,9 +92,10 @@ async function runSql(sql: string, connectionString: string, res: NextApiRespons
     } catch (e) {
       throw e;
     } finally {
-      await connTemp?.end();
+      await client.destroy();
     }
   }
+  // todo: Handle return based on dialect
   // Let's make this a bit easier to parse. Error -> error path, single table -> array of objects,
   // multiple tables -> array of array of objects
   return out.map((t: { statement: any; queryRes: QueryResult }) => {
