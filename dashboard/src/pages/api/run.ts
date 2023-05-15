@@ -3,6 +3,7 @@ import { OkPacket } from 'mysql';
 import { NextApiRequest, NextApiResponse } from 'next';
 import pg, { QueryResult } from 'pg';
 import { parse, deparse } from 'pgsql-parser';
+import { SQLDialect } from 'sql-surveyor';
 
 enum KnexClient {
   MYSQL = 'mysql',
@@ -63,7 +64,12 @@ function until<T>(p: Promise<T>, timeout: number): Promise<T> {
   });
 }
 
-async function runSql(sql: string, connectionString: string, dialect: string, res: NextApiResponse) {
+async function runSql(
+  sql: string,
+  connectionString: string,
+  dialect: keyof typeof SQLDialect,
+  res: NextApiResponse,
+) {
   const out: any = [];
   const stmts = parse(sql);
   for (const stmt of stmts) {
@@ -96,28 +102,58 @@ async function runSql(sql: string, connectionString: string, dialect: string, re
     }
   }
   // todo: Handle return based on dialect
-  // Let's make this a bit easier to parse. Error -> error path, single table -> array of objects,
-  // multiple tables -> array of array of objects
-  return out.map((t: { statement: any; queryRes: QueryResult }) => {
-    if (
-      !!t.queryRes.rows &&
-      t.queryRes.rows.length === 0 &&
-      t.queryRes.command !== 'SELECT' &&
-      typeof t.queryRes.rowCount === 'number'
-    ) {
-      return { statement: t.statement, affected_records: t.queryRes.rowCount };
-    } else if (isString(t.queryRes)) {
-      return { statement: t.statement, result: t.queryRes };
-    } else if (!!t.queryRes.rows) {
-      return {
-        statement: t.statement,
-        result: t.queryRes.rows,
-        types: Object.fromEntries(t.queryRes.fields.map(f => [f.name, f.dataTypeID])),
-      };
-    } else {
-      return { statement: t.statement, error: `unexpected result: ${t.queryRes}` }; // TODO: Error this out
+  switch (KnexClient[dialect as keyof typeof KnexClient]) {
+    case KnexClient.PLpgSQL: {
+      // Let's make this a bit easier to parse. Error -> error path, single table -> array of objects,
+      // multiple tables -> array of array of objects
+      return out.map((t: { statement: any; queryRes: QueryResult }) => {
+        if (
+          !!t.queryRes.rows &&
+          t.queryRes.rows.length === 0 &&
+          t.queryRes.command !== 'SELECT' &&
+          typeof t.queryRes.rowCount === 'number'
+        ) {
+          return { statement: t.statement, affected_records: t.queryRes.rowCount };
+        } else if (isString(t.queryRes)) {
+          return { statement: t.statement, result: t.queryRes };
+        } else if (!!t.queryRes.rows) {
+          return {
+            statement: t.statement,
+            result: t.queryRes.rows,
+            types: Object.fromEntries(t.queryRes.fields.map(f => [f.name, f.dataTypeID])),
+          };
+        } else {
+          return { statement: t.statement, error: `unexpected result: ${t.queryRes}` }; // TODO: Error this out
+        }
+      });
     }
-  });
+    case KnexClient.MYSQL: {
+      return out.map((t: { statement: any; queryRes: any }) => {
+        const [result, fields] = t.queryRes;
+        if (
+          !!result &&
+          result.affectedRows !== undefined &&
+          result.affectedRows !== null &&
+          typeof result.affectedRows === 'number'
+        ) {
+          return { statement: t.statement, affected_records: result.affectedRows };
+        } else if (!!result && result.length > 0 && typeof result[0] === 'object') {
+          return {
+            statement: t.statement,
+            result,
+            types: Object.fromEntries(fields.map((f: any) => [f.name, f.type])),
+          };
+        } else {
+          return { statement: t.statement, error: `unexpected result: ${JSON.stringify(t.queryRes)}` }; // TODO: Error this out
+        }
+      });
+    }
+    case KnexClient.TSQL: {
+    }
+    default: {
+      return out;
+    }
+  }
 }
 
 function isString(obj: unknown): obj is string {
