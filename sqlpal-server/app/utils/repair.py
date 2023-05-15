@@ -61,7 +61,7 @@ def predict_repair(llm, query, error_message, docsearch, dialect):
 
 def repair_chat(query, error_message, docsearch, dialect):
     llm = ChatOpenAI(temperature=os.environ.get('TEMPERATURE', 0.9),
-                     model_name=os.environ.get('LLM_MODEL', 'gpt-3.5-turbo'), n=int(os.environ.get('OPENAI_NUM_ANSWERS', 1)))
+                     model_name=os.environ.get('REPAIR_MODEL', 'gpt-3.5-turbo'), n=int(os.environ.get('OPENAI_NUM_ANSWERS', 1)))
     res = predict_repair(llm, query, error_message, docsearch, dialect)
     final_queries = extract_queries_from_result(res)
     return final_queries
@@ -69,7 +69,7 @@ def repair_chat(query, error_message, docsearch, dialect):
 
 def repair_openai(query, error_message, docsearch, dialect):
     llm = OpenAI(temperature=os.environ.get('TEMPERATURE', 0.9),
-                 model_name=os.environ.get('LLM_MODEL', 'text-davinci-002'), n=int(os.environ.get('OPENAI_NUM_ANSWERS', 1)))
+                 model_name=os.environ.get('REPAIR_MODEL', 'text-davinci-002'), n=int(os.environ.get('OPENAI_NUM_ANSWERS', 1)))
     res = predict_repair(llm, query, error_message, docsearch, dialect)
     final_queries = extract_queries_from_result(res)
     return final_queries
