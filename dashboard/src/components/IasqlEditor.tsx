@@ -274,7 +274,7 @@ export default function IasqlEditor() {
       // Dispatch suggestion
       dispatch({
         action: ActionType.GetSuggestions,
-        data: { query: contextText, connString, tabIdx: editorSelectedTab, schema: schema },
+        data: { query: contextText, connString, tabIdx: editorSelectedTab, schema },
       });
     }
   };
