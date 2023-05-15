@@ -240,13 +240,7 @@ const reducer = (state: AppState, payload: Payload): AppState => {
     case ActionType.Repair: {
       const { suggestions, query, tabIdx } = payload.data;
       const tabsCopy = [...state.editorTabs];
-
-      // replace the buggy query with the new one
-      const result = tabsCopy[tabIdx].content;
-      if (result && suggestions.length > 0) {
-        const res = result.replace(query, suggestions[0].value);
-        tabsCopy[tabIdx].content = res.replace(query, suggestions[0].value);
-      }
+      tabsCopy[tabIdx].suggestions = [...(suggestions ?? [])];
       return { ...state, editorTabs: tabsCopy };
     }
     case ActionType.ResetSuggestion: {

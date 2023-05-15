@@ -150,7 +150,13 @@ export default function IasqlEditor() {
       clearSuggestions();
       // Interval to show loading dots
       const editor = editorRef?.current?.editor;
-      if (editor) editor.setGhostText('...Repairing...', editor.getCursorPosition());
+      if (editor) {
+        const position = editor.getCursorPosition();
+        position.column = editor.session.getLine(position.row).length;
+        editor.moveCursorTo(position.row, position.column);
+  
+        editor.setGhostText('...Repairing...', editor.getCursorPosition());
+      }
       // iterate over all queries that may have an error
       if (parseErrorsByStmt) {
         for (let key in parseErrorsByStmt) {

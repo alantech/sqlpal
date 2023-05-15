@@ -60,11 +60,9 @@ def predict_repair(llm, query, error_message, docsearch, dialect):
     return res
 
 def repair_chat(query, error_message, docsearch, dialect):
-    print("in chat")
     llm = ChatOpenAI(temperature=os.environ.get('TEMPERATURE', 0.9),
                      model_name=os.environ.get('REPAIR_MODEL', 'gpt-3.5-turbo'), n=int(os.environ.get('OPENAI_NUM_ANSWERS', 1)))
     res = predict_repair(llm, query, error_message, docsearch, dialect)
-    print(res)
     final_queries = extract_queries_from_result(res)
     return final_queries
 
@@ -126,10 +124,6 @@ def repair_selfhosted(query, error_message, docsearch, dialect):
     return None
 
 def repair_query_suggestions(query, error_message, docsearch, dialect):
-    print("i repair")
-    print(query)
-    print(error_message)
-
     if os.environ.get('REPAIR_METHOD', 'chat') == 'chat':
         queries = repair_chat(query, error_message, docsearch, dialect)
     elif os.environ.get('REPAIR_METHOD', 'chat') == 'openai':
