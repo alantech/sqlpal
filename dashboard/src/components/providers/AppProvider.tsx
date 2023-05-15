@@ -269,7 +269,13 @@ const middlewareReducer = async (
     case ActionType.SetDBConfig: {
       const { connString, dialect } = payload.data;
       try {
-        const schemaRes = await DbActions.run(backendUrl, connString, initialQuery);
+        let schemaRes: any = undefined;
+        // todo: remove this try/catch
+        try {
+          schemaRes = await DbActions.run(backendUrl, connString, initialQuery, dialect);
+        } catch (e) {
+          // ignore
+        }
         const schema = {} as {
           [tableName: string]: { [columnName: string]: { dataType: string; isMandatory: boolean } } & {
             recordCount: number;
