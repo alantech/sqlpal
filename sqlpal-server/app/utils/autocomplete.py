@@ -1,14 +1,13 @@
 import json
 import logging
-import re
 import sys
 import requests
 from requests.auth import HTTPBasicAuth
+from . import extract_queries_from_result
 from langchain import PromptTemplate, LLMChain
 from langchain.chat_models import ChatOpenAI
 from langchain.llms import OpenAI
 import os
-from langchain.chains.chat_vector_db.prompts import QA_PROMPT
 import logging
 from difflib import SequenceMatcher
 
@@ -94,17 +93,6 @@ def predict(llm, query, docsearch, dialect):
     res = llm_chain.predict(table_info=docs, query=query, dialect=dialect)
     logger.info("Result from LLM: "+res)
     return res
-
-
-def extract_queries_from_result(result):
-    # transform newlines to spaces, and trim
-    result = re.sub(r'\n', ' ', result)
-    if len(result)>0:
-        if ";" in result:
-            result = result.split(";")[0]
-        return [result.strip()+";"]
-    else:
-        return [""]
 
 def autocomplete_chat(query, docsearch, dialect):
     llm = ChatOpenAI(temperature=os.environ.get('TEMPERATURE', 0.9),
