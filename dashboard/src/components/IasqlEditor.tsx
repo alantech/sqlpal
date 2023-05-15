@@ -1,4 +1,5 @@
 import { forwardRef, useCallback, useEffect, useRef } from 'react';
+import React from 'react';
 import ReactAce, { IAceEditorProps } from 'react-ace/lib/ace';
 
 import debounce from 'lodash/debounce';
@@ -144,6 +145,42 @@ export default function IasqlEditor() {
     },
     [dispatch, token],
   );
+
+  // detect clicks on the editor
+  const handleEditorClick = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.className.includes('ace_error') && target.className.includes('ace_gutter-cell')) {
+      clearSuggestions();
+      // Interval to show loading dots
+      const editor = editorRef?.current?.editor;
+      if (editor) {
+        const position = editor.getCursorPosition();
+        position.column = editor.session.getLine(position.row).length;
+        editor.moveCursorTo(position.row, position.column);
+  
+        editor.setGhostText('...Repairing...', editor.getCursorPosition());
+      }
+      // iterate over all queries that may have an error
+      if (parseErrorsByStmt) {
+        for (let key in parseErrorsByStmt) {
+          let value = parseErrorsByStmt[key];
+          if (value) {
+            // trigger the repair call
+            dispatch({
+              action: ActionType.Repair,
+              data: { query: key, error: value, schema: schema, connString, tabIdx: editorSelectedTab },
+            });
+          }
+        }
+      }
+      editorRef?.current?.editor.session.clearAnnotations();
+      const currentMarkers = editorRef?.current?.editor.session.getMarkers(true);
+      for (const m of Object.values(currentMarkers ?? {})) {
+        editorRef?.current?.editor.session.removeMarker(m.id);
+      }
+    }
+    e.stopPropagation();
+  };
 
   useEffect(() => {
     const command = {
@@ -400,6 +437,7 @@ export default function IasqlEditor() {
       const isPopupOpen = !!editor?.completer?.popup?.isOpen;
       const markerErrorClass = 'absolute border-b-2 border-dotted border-rose-500';
       const markerType = 'text';
+      let range: any;
       // Clean-up phase
       editor.session.clearAnnotations();
       const currentMarkers = editor.session.getMarkers(true);
@@ -411,7 +449,7 @@ export default function IasqlEditor() {
         // Find the statement in the editor content.
         // The `find` method automatically selects the range, so we need to clear the selection and restore the cursor position
         const cursorPos = editor.getCursorPosition();
-        const range = editor.find(stmt, {}, false);
+        range = editor.find(stmt, {}, false);
         editor?.selection?.clearSelection();
         if (cursorPos) editor.moveCursorToPosition(cursorPos);
         // If we did not find the statement, we continue
@@ -422,6 +460,7 @@ export default function IasqlEditor() {
           editor.session.setAnnotations([
             ...editor.session.getAnnotations(),
             { row: range.start.row, type: 'error', text: parseErrorsByStmt?.[stmt] },
+            { row: range.start.row, type: 'info', text: '-- Click to repair --' },
           ]);
         }
       }
@@ -434,7 +473,7 @@ export default function IasqlEditor() {
     <VBox customClasses='mb-3'>
       <HBox alignment={align.between}>
         <QuerySidebar />
-        <VBox id='tabs-and-editor' customClasses='w-full' height='h-50vh'>
+        <VBox id='tabs-and-editor' customClasses='w-full' height='h-50vh' onClick={handleEditorClick}>
           <Tab
             tabs={editorTabs}
             defaultIndex={editorSelectedTab}
@@ -462,6 +501,7 @@ export default function IasqlEditor() {
               showLineNumbers: true,
               spellcheck: true,
               tabSize: 2,
+              tooltipFollowsMouse: false,
               theme: isDarkMode ? 'ace/theme/monokai' : 'ace/theme/tomorrow',
             }}
           />

@@ -59,10 +59,14 @@ def analyze_query(db, query):
     dialect = db.dialect
     sess = Session(bind=db._engine)
     if dialect.lower() == 'postgresql':
-        result = sess.execute(text("""EXPLAIN """+query)).fetchall()
-        if len(result)>0 and 'Error' not in result[0][0]:
-            # query has been successfully explained
-            return True
+        try:
+            result = sess.execute(text("""EXPLAIN """+query)).fetchall()
+            if len(result)>0 and 'Error' not in result[0][0]:
+                # query has been successfully explained
+                return True
+        except Exception as e:
+            logger.info("Error while explaining query: "+str(e))
+            return False
         return False
     
     # no dialect covered, just return as valid

@@ -34,6 +34,7 @@ export enum ActionType {
   SelectTable = 'SelectTable',
   GetSuggestions = 'GetSuggestions',
   ResetSuggestion = 'ResetSuggestion',
+  Repair = 'Repair',
 }
 
 interface Payload {
@@ -104,7 +105,7 @@ const initialQuery = `
 `;
 
 const gettingStarted = `-- Welcome to SQLPal! Steps to get started:
-
+ 
 -- 1. Start writing your queries. Once the suggestion appears press tab to accept or esc to ignore.
 
 -- 2. You can right comments too in order to get a suggestion for the next query.
@@ -245,6 +246,12 @@ const reducer = (state: AppState, payload: Payload): AppState => {
       tabsCopy[tabIdx].suggestions = [...(suggestions ?? [])];
       return { ...state, editorTabs: tabsCopy };
     }
+    case ActionType.Repair: {
+      const { suggestions, query, tabIdx } = payload.data;
+      const tabsCopy = [...state.editorTabs];
+      tabsCopy[tabIdx].suggestions = [...(suggestions ?? [])];
+      return { ...state, editorTabs: tabsCopy };
+    }
     case ActionType.ResetSuggestion: {
       const { tabIdx } = payload.data;
       const tabsCopy = [...state.editorTabs];
@@ -381,7 +388,6 @@ const middlewareReducer = async (
       let suggestions: any[] = [];
       try {
         const autocompleteRes = await DbActions.autocomplete(serverUrl, connString, query);
-        console.log(JSON.stringify(autocompleteRes));
         if (autocompleteRes['suggestions'] && Array.isArray(autocompleteRes['suggestions'])) {
           // validate the suggestions and return the first valid one
           for (const suggestion of autocompleteRes['suggestions']) {
@@ -404,11 +410,39 @@ const middlewareReducer = async (
       dispatch({ ...payload, data: { suggestions, tabIdx } });
       break;
     }
+    case ActionType.Repair: {
+      const { connString, query, error, tabIdx, schema } = payload.data;
+      if (!connString) break;
+      let suggestions: any[] = [];
+      try {
+        const repairRes = await DbActions.repair(serverUrl, connString, query, error);
+        if (repairRes['suggestions'] && Array.isArray(repairRes['suggestions'])) {
+          // validate the suggestions and return the first valid one
+          for (const suggestion of repairRes['suggestions']) {
+            const validationError = await validateSql(suggestion, schema);
+            if (validationError) continue;
+            else {
+              suggestions = [{ value: suggestion }];
+              break;
+            }
+          }
+        } else {
+          suggestions = [];
+        }
+      } catch (e: any) {
+        // todo: handle error
+        console.log('catching this error');
+        console.error(e);
+        suggestions = [];
+      }
+      dispatch({ ...payload, data: { suggestions, query, tabIdx } });
+      break;
+    }
     case ActionType.ValidateContent: {
       const { content, schema, dialect } = payload.data;
       const statements = content
         .split(';')
-        .map((s: string) => s.trim())
+        .map((s: string) => s.trim() + ';')
         .filter((s: string) => s.length > 0);
       const parseErrorsByStmt: { [stmt: string]: string } = {};
       for (const stmt of statements) {
