@@ -13,18 +13,21 @@ export default function Connect() {
     {
       key: 'PLpgSQL',
       name: 'Postgres',
+      protocol: 'postgresql',
     },
     {
       key: 'MYSQL',
       name: 'MySQL',
+      protocol: 'mysql',
     },
     {
       key: 'TSQL',
       name: 'SQL Server',
+      protocol: 'mssql',
     },
   ];
 
-  const [connStr, SetConnStr] = useState('postgres://postgres:sqlpass@localdb:5432/sqlpal');
+  const [connStr, SetConnStr] = useState('postgres:sqlpass@localdb:5432/sqlpal');
   const [stack, setStack] = useState(['addconn']);
   const [selectedDialect, setSelectedDialect] = useState(dialects[0]);
 
@@ -73,7 +76,7 @@ export default function Connect() {
           dispatch({ action: ActionType.ShowConnect, data: { showConnect: false } });
           dispatch({
             action: ActionType.SetDBConfig,
-            data: { connString: connStr, dialect: selectedDialect.key },
+            data: { connString: `${selectedDialect.protocol}://${connStr}`, dialect: selectedDialect.key },
           });
         }}
       >
@@ -82,15 +85,6 @@ export default function Connect() {
         </Label>
         <form className='mb-10'>
           <VBox>
-            <Label htmlFor='conn-str'>Connection String</Label>
-            <Input
-              required
-              type='text'
-              name='conn-str'
-              value={connStr}
-              setValue={SetConnStr}
-              placeholder='postgresql://postgres:sqlpass@<your_host_ip>/sqlpal'
-            />
             {/* TODO: The `htmlFor` does not work with Combobox yet */}
             <Label htmlFor='db-dialect'>Database dialect</Label>
             {/* TODO: Remove this div wrapper somehow */}
@@ -102,6 +96,15 @@ export default function Connect() {
                 accessProp='name'
               />
             </div>
+            <Label htmlFor='conn-str'>Connection String</Label>
+            <Input
+              required
+              type='text'
+              name='conn-str'
+              value={connStr}
+              setValue={SetConnStr}
+              placeholder='<your_user>:<your_password>@<your_host_ip>/<your_db>'
+            />
           </VBox>
         </form>
       </Step>
