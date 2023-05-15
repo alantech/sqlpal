@@ -147,6 +147,10 @@ export default function IasqlEditor() {
   const handleEditorClick = (e: MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.className.includes('ace_error') && target.className.includes('ace_gutter-cell')) {
+      clearSuggestions();
+      // Interval to show loading dots
+      const editor = editorRef?.current?.editor;
+      if (editor) editor.setGhostText('...Repairing...', editor.getCursorPosition());
       // iterate over all queries that may have an error
       if (parseErrorsByStmt) {
         for (let key in parseErrorsByStmt) {

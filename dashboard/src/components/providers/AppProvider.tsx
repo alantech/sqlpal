@@ -100,7 +100,7 @@ const initialQuery = `
 `;
 
 const gettingStarted = `-- Welcome to SQLPal! Steps to get started:
-
+ 
 -- 1. Start writing your queries. Once the suggestion appears press tab to accept or esc to ignore.
 
 -- 2. You can right comments too in order to get a suggestion for the next query.
