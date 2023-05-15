@@ -83,6 +83,7 @@ interface AppStore extends AppState {
   dispatch: (payload: Payload) => Promise<void>;
 }
 
+// todo: re-write this based on dialects
 const initialQuery = `
   select c.table_name,
          c.ordinal_position,
