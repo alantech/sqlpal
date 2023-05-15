@@ -3,7 +3,7 @@ FROM node:lts-bullseye-slim AS base
 
 ## Install OS Packages
 RUN apt update
-RUN apt install --no-install-recommends curl jq gnupg ca-certificates python3-pip python3-venv supervisor  -y \
+RUN apt install --no-install-recommends curl jq gnupg ca-certificates python3-pip python3-venv supervisor default-libmysqlclient-dev -y \
   && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && mkdir -p /etc/supervisor/conf.d
 
 #####################################################################################################################################################
