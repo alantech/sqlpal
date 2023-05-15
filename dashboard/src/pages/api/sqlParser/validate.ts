@@ -14,6 +14,10 @@ interface ValidateRequest {
   fromServer?: boolean;
 }
 
+// Regex to extract function arguments
+const functionRegex = /^\s*\w+\s*\(/;
+const argumentRegex = /^\s*(\w+)\s*\((.*)\)/g;
+
 async function validate(req: NextApiRequest, res: NextApiResponse) {
   console.log('Handling request', {
     app: 'parse',
@@ -84,6 +88,7 @@ function validateParsedQuery(parsedQuery: ParsedQuery, schema: Schema): string[]
   const tableErrors = validateTables(parsedQuery, schema);
   // Check if output columns are part of schema and table
   const outputColumnErrors = validateOutputColumns(parsedQuery, schema);
+  console.log('outputColumnErrors', outputColumnErrors);
   // Check if referenced columns are part of the schema and table
   const referencedColumnErrors = validateReferencedColumns(parsedQuery, schema);
   return errs.concat(queryErrors, tableErrors, outputColumnErrors, referencedColumnErrors);
@@ -112,10 +117,36 @@ function validateTables(parsedQuery: ParsedQuery, schema: Schema): string[] {
 function validateOutputColumns(parsedQuery: ParsedQuery, schema: Schema): string[] {
   let errs: string[] = [];
   const tables = Object.keys(parsedQuery.referencedTables);
-  const columns = parsedQuery.outputColumns;
-  for (const column of Object.values(columns)) {
-    if (column.columnName && column.columnName !== '*' && !tables.some(t => schema[t]?.[column.columnName])) {
-      errs.push(`Column "${column.columnName}" does not exist in tables "${tables.join(', ')}"`);
+  console.log('tables', tables);
+  const parsedOutputColumns = parsedQuery.outputColumns;
+  console.log('columns', JSON.stringify(parsedOutputColumns));
+  const identifiers = Object.values(parsedQuery.tokens)
+    .filter(t => t.type === 'IDENTIFIER')
+    .map(t => t.value);
+  for (const parsedOutputColumn of Object.values(parsedOutputColumns)) {
+    let columnNames: string[] = [];
+    const colTableName = tables.includes(parsedOutputColumn.tableName)
+      ? parsedOutputColumn.tableName
+      : undefined;
+    const colTableAlias = parsedOutputColumn.tableAlias;
+    let columnValue = parsedOutputColumn.columnName;
+    if (columnValue.match(functionRegex)) {
+      columnNames.push(...(extractArguments(columnValue) ?? []));
+    }
+    // Keep only with `IDENTIFIERS`, removing literals, keywords, etc.
+    columnNames = columnNames.filter(cn => identifiers.includes(cn));
+    // Remove table name and alias from column name
+    columnNames = columnNames.map(cn => {
+      return cn
+        .split('.')
+        .filter(c => c !== colTableName && c !== colTableAlias)
+        .join('.');
+    });
+    // Check errors for each column name
+    for (const columnName of columnNames) {
+      if (columnName && !columnName.includes('*') && !tables.some(t => schema[t]?.[columnName])) {
+        errs.push(`Column "${columnName}" does not exist in tables "${tables.join(', ')}"`);
+      }
     }
   }
   return errs;
@@ -131,4 +162,26 @@ function validateReferencedColumns(parsedQuery: ParsedQuery, schema: Schema): st
     }
   }
   return errs;
+}
+
+// Extract arguments from a function call string
+function extractArguments(functionCall: string): string[] {
+  // Using `any` here since theres a mismatch in the TS return type and the actual return type for `matchAll`
+  // This will extract the function name in the first group and the arguments in the second group
+  const matchArgs: any[][] = Array.from(functionCall.matchAll(argumentRegex));
+  const finalArgs: string[] = [];
+  for (const match of matchArgs) {
+    // Get argument from second group
+    const args = match[2].split(',');
+    for (const arg of args) {
+      // It could be a nested function call so we need to extract the arguments from it
+      if (arg.match(functionRegex)) {
+        const subArgs = extractArguments(arg);
+        finalArgs.push(...subArgs);
+      } else {
+        finalArgs.push(arg);
+      }
+    }
+  }
+  return finalArgs;
 }
