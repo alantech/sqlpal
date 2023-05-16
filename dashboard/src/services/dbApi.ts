@@ -42,22 +42,33 @@ export async function run(backendUrl: string, connString: string, sql: string, d
   return resp.json();
 }
 
-export async function autocomplete(backendUrl: string, connString: string, sql: string) {
-  const resp = await post(backendUrl, 'autocomplete', { query: sql, conn_str: connString });
+export async function autocomplete(backendUrl: string, connString: string, sql: string, dialect: string) {
+  const resp = await post(backendUrl, 'autocomplete', { query: sql, conn_str: connString, dialect });
   return resp.json();
 }
 
-export async function discoverData(backendUrl: string, connString: string) {
-  const resp = await post(backendUrl, 'discover', { conn_str: connString });
+export async function discoverData(backendUrl: string, connString: string, dialect: string) {
+  const resp = await post(backendUrl, 'discover', { conn_str: connString, dialect });
   return resp.json();
 }
 
-export async function repair(backendUrl: string, connString: string, query: string, error: string) {
-  const resp = await post(backendUrl, 'repair', { conn_str: connString, query: query, error_message: error });
+export async function repair(
+  backendUrl: string,
+  connString: string,
+  query: string,
+  error: string,
+  dialect: string,
+) {
+  const resp = await post(backendUrl, 'repair', {
+    conn_str: connString,
+    query: query,
+    error_message: error,
+    dialect,
+  });
   return resp.json();
 }
 
-export async function addStatement(backendUrl: string, connString: string, query: string) {
-  const resp = await post(backendUrl, 'add', { query, conn_str: connString });
+export async function addStatement(backendUrl: string, connString: string, query: string, dialect: string) {
+  const resp = await post(backendUrl, 'add', { query, conn_str: connString, dialect });
   return resp.json();
 }

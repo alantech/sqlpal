@@ -310,7 +310,7 @@ const middlewareReducer = async (
         break;
       }
       try {
-        await DbActions.discoverData(serverUrl, connString);
+        await DbActions.discoverData(serverUrl, connString, dialect);
       } catch (e) {
         console.log(`/discover failed with error: ${e}.`);
       }
@@ -358,7 +358,7 @@ const middlewareReducer = async (
       // add the query to the index
       if (queryRes && queryRes.length > 0) {
         try {
-          await DbActions.addStatement(serverUrl, connString, queryRes[0].statement ?? '');
+          await DbActions.addStatement(serverUrl, connString, queryRes[0].statement ?? '', dialect);
         } catch (e) {
           console.error(e);
         }
@@ -388,7 +388,7 @@ const middlewareReducer = async (
       if (!connString) break;
       let suggestions: any[] = [];
       try {
-        const autocompleteRes = await DbActions.autocomplete(serverUrl, connString, query);
+        const autocompleteRes = await DbActions.autocomplete(serverUrl, connString, query, dialect);
         if (autocompleteRes['suggestions'] && Array.isArray(autocompleteRes['suggestions'])) {
           // validate the suggestions and return the first valid one
           for (const suggestion of autocompleteRes['suggestions']) {
@@ -416,7 +416,7 @@ const middlewareReducer = async (
       if (!connString) break;
       let suggestions: any[] = [];
       try {
-        const repairRes = await DbActions.repair(serverUrl, connString, query, error);
+        const repairRes = await DbActions.repair(serverUrl, connString, query, error, dialect);
         if (repairRes['suggestions'] && Array.isArray(repairRes['suggestions'])) {
           // validate the suggestions and return the first valid one
           for (const suggestion of repairRes['suggestions']) {

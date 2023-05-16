@@ -21,14 +21,31 @@ def connect_to_db(request):
     Base = declarative_base()
 
     conn_str = request.json.get('conn_str', None)
+    dialect = request.json.get('dialect', None)
     # try to fix the postgres endpoint deprecation
     if conn_str:
         if conn_str.startswith("postgres://"):
             conn_str = conn_str.replace("postgres://", "postgresql://", 1)
         session['conn_str'] = get_id_from_conn_str(conn_str)
 
+        # connect and create all tables
         try:
-            # connect and create all tables
+            # If mssql, add the driver param
+            if dialect.lower() == 'tsql':
+                conn_str_split = conn_str.split("?")
+                query_params = conn_str_split[1] if len(
+                    conn_str_split) > 1 else None
+                if query_params is not None:
+                    params = query_params.split("&")
+                    # filter out the driver param
+                    params = list(
+                        filter(lambda p: not p.startswith("driver"), params))
+                    params.append("driver=ODBC Driver 18 for SQL Server")
+                    query_params = "&".join(params)
+                else:
+                    query_params = "driver=ODBC Driver 18 for SQL Server"
+                conn_str = conn_str_split[0] + "?" + query_params
+            # todo: how to handle errors trying to connect to the db (e.g. driver errors)?
             db = SQLDatabase.from_uri(conn_str, sample_rows_in_table_info=current_app.config.get(
                 'SAMPLE_ROWS_IN_TABLE_INFO'), indexes_in_table_info=True)
 
@@ -55,22 +72,24 @@ def get_schema_dict(db: SQLDatabase):
             schema[table][column] = 1
     return schema
 
+
 def analyze_query(db, query):
     dialect = db.dialect
     sess = Session(bind=db._engine)
     if dialect.lower() == 'postgresql':
         try:
             result = sess.execute(text("""EXPLAIN """+query)).fetchall()
-            if len(result)>0 and 'Error' not in result[0][0]:
+            if len(result) > 0 and 'Error' not in result[0][0]:
                 # query has been successfully explained
                 return True
         except Exception as e:
             logger.info("Error while explaining query: "+str(e))
             return False
         return False
-    
+
     # no dialect covered, just return as valid
     return True
+
 
 def explain_query(db: SQLDatabase, query, timeout):
     # perform a query explain with a given timeout
@@ -90,10 +109,11 @@ def explain_query(db: SQLDatabase, query, timeout):
             # Process the result
             return result
 
+
 def extract_queries_from_result(result):
     # transform newlines to spaces, and trim
     result = re.sub(r'\n', ' ', result)
-    if len(result)>0:
+    if len(result) > 0:
         if ";" in result:
             result = result.split(";")[0]
         return [result.strip()+";"]
