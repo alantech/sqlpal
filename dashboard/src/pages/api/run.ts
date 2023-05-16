@@ -72,7 +72,7 @@ async function runSql(
   const out: any = [];
   const stmts = parse(sql);
   for (const stmt of stmts) {
-    const dbId = connectionString.split('/').pop();
+    const dbId = connectionString.split('/').pop()?.split('?')[0];
     const username = connectionString.split('/')[2].split(':')[0];
     const password = connectionString.split('/')[2].split(':')[1].split('@')[0];
     const host = connectionString.split('/')[2].split(':')[1].split('@')[1];
