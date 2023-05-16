@@ -21,7 +21,7 @@ async function run(req: NextApiRequest, res: NextApiResponse) {
     const output = await until(
       (async () => {
         const { connString, sql, dialect } = req.body;
-        const out = await runSql(sql, connString, dialect, res);
+        const out = await runSql(sql, connString, dialect);
         return out;
       })(),
       execTime - 100,
@@ -63,12 +63,7 @@ function until<T>(p: Promise<T>, timeout: number): Promise<T> {
   });
 }
 
-async function runSql(
-  sql: string,
-  connectionString: string,
-  dialect: keyof typeof SQLDialect,
-  res: NextApiResponse,
-) {
+async function runSql(sql: string, connectionString: string, dialect: keyof typeof SQLDialect) {
   const out: any = [];
   const stmts = parse(sql);
   for (const stmt of stmts) {
