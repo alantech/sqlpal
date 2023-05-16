@@ -1,13 +1,12 @@
-import { Knex, knex } from 'knex';
-import { OkPacket } from 'mysql';
+import { knex } from 'knex';
 import { NextApiRequest, NextApiResponse } from 'next';
-import pg, { QueryResult } from 'pg';
+import { QueryResult } from 'pg';
 import { parse, deparse } from 'pgsql-parser';
 import { SQLDialect } from 'sql-surveyor';
 
 enum KnexClient {
   MYSQL = 'mysql',
-  TSQL = 'tedious',
+  TSQL = 'mssql',
   PLpgSQL = 'pg',
 }
 
@@ -101,7 +100,6 @@ async function runSql(
       await client.destroy();
     }
   }
-  // todo: Handle return based on dialect
   switch (KnexClient[dialect as keyof typeof KnexClient]) {
     case KnexClient.PLpgSQL: {
       // Let's make this a bit easier to parse. Error -> error path, single table -> array of objects,
@@ -149,6 +147,17 @@ async function runSql(
       });
     }
     case KnexClient.TSQL: {
+      return out.map((t: { statement: any; queryRes: any }) => {
+        const result = t.queryRes;
+        if (!!result && Array.isArray(result) && !t.statement.includes('SELECT') && result.length === 0) {
+          // todo: improve this
+          return { statement: t.statement, affected_records: 'unknown' };
+        } else if (!!result) {
+          return { statement: t.statement, result };
+        } else {
+          return { statement: t.statement, error: `unexpected result: ${JSON.stringify(t.queryRes)}` }; // TODO: Error this out
+        }
+      });
     }
     default: {
       return out;
