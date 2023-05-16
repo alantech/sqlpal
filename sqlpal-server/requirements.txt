@@ -10,3 +10,4 @@ flask_session
 # chromadb
 huggingface_hub
 mysqlclient
+pyodbc
