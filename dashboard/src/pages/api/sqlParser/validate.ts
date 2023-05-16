@@ -23,9 +23,13 @@ async function validate(req: NextApiRequest, res: NextApiResponse) {
     // TODO: make dialect configurable
     const surveyor = new SQLSurveyor(SQLDialect.PLpgSQL);
     const parsedSql = surveyor.survey(content);
-    console.dir(parsedSql, { depth: null });
-    validationErr = validateParsedSql(parsedSql, schema);
-    console.log(`validation error: ${validationErr}`);
+    if (parsedSql && parsedSql.parsedQueries && Object.keys(parsedSql.parsedQueries).length > 0) {
+      console.dir(parsedSql, { depth: null });
+      validationErr = validateParsedSql(parsedSql, schema);
+      console.log(`validation error: ${validationErr}`);
+    } else {
+      return res.status(400).json({ message: 'Invalid query' });
+    }
   } catch (e: any) {
     return res.status(400).json({ message: e?.message ?? 'Unknown error' });
   }
@@ -108,7 +112,7 @@ function validateOutputColumns(parsedQuery: ParsedQuery, schema: Schema): string
     let columnValue = parsedOutputColumn.columnName;
     if (columnValue.match(functionRegex)) {
       columnNames.push(...(extractArguments(columnValue) ?? []));
-    }
+    } else columnNames.push(columnValue);
     // Keep only with `IDENTIFIERS`, removing literals, keywords, etc.
     columnNames = columnNames.filter(cn => identifiers.includes(cn));
     // Remove table name and alias from column name
