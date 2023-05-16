@@ -249,6 +249,7 @@ const reducer = (state: AppState, payload: Payload): AppState => {
     case ActionType.Repair: {
       const { suggestions, query, tabIdx } = payload.data;
       const tabsCopy = [...state.editorTabs];
+      tabsCopy[tabIdx].content = query;
       tabsCopy[tabIdx].suggestions = [...(suggestions ?? [])];
       return { ...state, editorTabs: tabsCopy };
     }
@@ -442,7 +443,7 @@ const middlewareReducer = async (
       const { content, schema, dialect } = payload.data;
       const statements = content
         .split(';')
-        .map((s: string) => s.trim() + ';')
+        .map((s: string) => s.trim())
         .filter((s: string) => s.length > 0);
       const parseErrorsByStmt: { [stmt: string]: string } = {};
       for (const stmt of statements) {
