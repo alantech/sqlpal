@@ -96,7 +96,7 @@ export default function Connect() {
               value={connString}
               setValue={SetConnString}
               placeholder='[postgresql|mysql|mssql]://<your_user>:<your_password>@<your_host_ip>/<your_db>[?<param>=<value>&<param>=<value>...]'
-              validator={/(postgresql|mysql|mssql)\:\/\/.+\:.+@.+\/[A-Za-z\d\-\_]+\?{0,1}/}
+              validator={/(postgresql|mysql|mssql)(\:\/\/.+\:.+@.+\/[A-Za-z\d\-\_]+)(\?(\w+=\w+&)*\w+=\w+)?/g}
               validationErrorMessage='Please enter a valid database URL following the format: [postgresql|mysql|mssql]://<your_user>:<your_password>@<your_host_ip>/<your_db>[?<param>=<value>&<param>=<value>...]'
               setIsValid={SetIsValidConnString}
             />
