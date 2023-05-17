@@ -32,7 +32,9 @@ async function validate(req: NextApiRequest, res: NextApiResponse) {
     const parsedSql = surveyor.survey(body.content);
     if (parsedSql && parsedSql.parsedQueries && Object.keys(parsedSql.parsedQueries).length > 0) {
       console.dir(parsedSql, { depth: null });
-      validationErr = validateParsedSql(parsedSql, body.schema);
+      // Make sure that all tableNames and columnNames in body.schema are lowercase
+      const normalizedSchema: Schema = normalizeSchema(body.schema);
+      validationErr = validateParsedSql(parsedSql, normalizedSchema);
       console.log(`validation error: ${validationErr}`);
     } else {
       return res.status(400).json({ message: 'Invalid query' });
@@ -53,6 +55,18 @@ async function validate(req: NextApiRequest, res: NextApiResponse) {
 }
 
 export default validate;
+
+function normalizeSchema(schema: Schema): Schema {
+  const normalizedSchema: Schema = {};
+  for (const [tableName, table] of Object.entries(schema)) {
+    const normalizedTable: any = {};
+    for (const [columnName, column] of Object.entries(table)) {
+      normalizedTable[columnName.toLowerCase()] = column;
+    }
+    normalizedSchema[tableName.toLowerCase()] = normalizedTable;
+  }
+  return normalizedSchema;
+}
 
 function extractDialect(dialect: string, fromServer = false): keyof typeof SQLDialect {
   if (fromServer) {
@@ -111,7 +125,7 @@ function validateTables(parsedQuery: ParsedQuery, schema: Schema): string[] {
   let errs: string[] = [];
   const tables = parsedQuery.referencedTables;
   for (const table of Object.values(tables)) {
-    if (table.tableName && !schema[table.tableName]) {
+    if (table.tableName && !schema[table.tableName.toLowerCase()]) {
       errs.push(`Table "${table.tableName}" does not exist in schema`);
     }
   }
@@ -148,7 +162,11 @@ function validateOutputColumns(parsedQuery: ParsedQuery, schema: Schema): string
     });
     // Check errors for each column name
     for (const columnName of columnNames) {
-      if (columnName && !columnName.includes('*') && !tables.some(t => schema[t]?.[columnName])) {
+      if (
+        columnName &&
+        !columnName.includes('*') &&
+        !tables.some(t => schema[t.toLowerCase()]?.[columnName.toLowerCase()])
+      ) {
         errs.push(`Column "${columnName}" does not exist in tables "${tables.join(', ')}"`);
       }
     }
@@ -161,7 +179,7 @@ function validateReferencedColumns(parsedQuery: ParsedQuery, schema: Schema): st
   const tables = Object.keys(parsedQuery.referencedTables);
   const columns = parsedQuery.referencedColumns;
   for (const column of Object.values(columns)) {
-    if (column.columnName && !tables.some(t => schema[t]?.[column.columnName])) {
+    if (column.columnName && !tables.some(t => schema[t.toLowerCase()]?.[column.columnName.toLowerCase()])) {
       errs.push(`Column "${column.columnName}" does not exist in tables "${tables.join(', ')}"`);
     }
   }
