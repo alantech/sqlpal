@@ -318,7 +318,7 @@ const middlewareReducer = async (
       try {
         let schemaRes: any = undefined;
         const dbId = connString.split('/')?.pop()?.split('?')?.[0] ?? '';
-        let initialQuery = generateInitialQuery(dialect, dbId);
+        const initialQuery = generateInitialQuery(dialect, dbId);
         schemaRes = await DbActions.run(backendUrl, connString, initialQuery, dialect);
         const schema = {} as {
           [tableName: string]: { [columnName: string]: { dataType: string; isMandatory: boolean } } & {
