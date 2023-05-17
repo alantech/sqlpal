@@ -84,27 +84,21 @@ interface AppStore extends AppState {
   dispatch: (payload: Payload) => Promise<void>;
 }
 
-// todo: re-write this based on dialects
-const initialQueryPg = `
-  select c.table_name,
-         c.ordinal_position,
-         c.column_name,
-         c.data_type,
-         c.is_nullable,
-         c.column_default
-  from information_schema.columns as c
-  inner join information_schema.tables as t
-    on c.table_name = t.table_name
-  where t.table_schema = 'public' and c.table_name != 'index_content'
-  order by table_name, ordinal_position;
+const generateInitialQuery = (dialect: SQLDialects, dbId?: string) => {
+  const tableSchemaBasedOnDialect = {
+    PLpgSQL: 'public',
+    MYSQL: dbId ?? 'mysql',
+    TSQL: 'dbo',
+  };
+  console.log('dbId', dbId);
+  console.log('dialect', dialect);
+  console.log('tableSchemaBasedOnDialect', tableSchemaBasedOnDialect[dialect]);
+  const columnInfoByTableQuery = getColumnInfoByTableQuery(tableSchemaBasedOnDialect[dialect]);
+  const recordCountByTableQuery = getRecordCountByTableQuery(dialect, tableSchemaBasedOnDialect[dialect]);
+  return `${columnInfoByTableQuery}; ${recordCountByTableQuery}`;
+};
 
-  select
-    t.table_name as table_name,
-    (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from public.%I', t.table_name), FALSE, TRUE, '')))[1]::text::int AS record_count
-  from (select table_name from information_schema.tables where table_schema = 'public') as t;
-`;
-
-const initialQueryMssql = `
+const getColumnInfoByTableQuery = (tableSchema: string) => `
   select c.table_name as table_name,
          c.ordinal_position as ordinal_position,
          c.column_name as column_name,
@@ -112,39 +106,41 @@ const initialQueryMssql = `
          c.is_nullable as is_nullable,
          c.column_default as column_default
   from information_schema.columns as c
-  inner join information_schema.tables as t
-    on c.table_name = t.table_name
-  where t.table_schema = 'dbo' and c.table_name != 'index_content'
-  order by table_name, ordinal_position;
-
-  SELECT
-    o.NAME as table_name,
-    i.rowcnt AS record_count
-  FROM sysindexes AS i
-  INNER JOIN sysobjects AS o ON i.id = o.id 
-  WHERE i.indid < 2  AND OBJECTPROPERTY(o.id, 'IsMSShipped') = 0 AND o.name != 'index_content'
-  ORDER BY o.NAME;
+  inner join information_schema.tables as t on c.table_name = t.table_name
+  where t.table_schema = '${tableSchema}' and c.table_name != 'index_content'
+  order by table_name, ordinal_position; 
 `;
 
-const initialQueryMysql = `
-  select c.table_name as table_name,
-         c.ordinal_position as ordinal_position,
-         c.column_name as column_name,
-         c.data_type as data_type,
-         c.is_nullable as is_nullable,
-         c.column_default as column_default
-  from information_schema.columns as c
-  inner join information_schema.tables as t
-    on c.table_name = t.table_name
-  where t.table_schema = 'sqlpal' and c.table_name != 'index_content'
-  order by table_name, ordinal_position;
-
-  SELECT 
-    TABLE_NAME AS table_name,
-    SUM(TABLE_ROWS) as record_count
-  FROM INFORMATION_SCHEMA.TABLES
-  WHERE table_schema = 'sqlpal' AND table_name != 'index_content';
-`;
+const getRecordCountByTableQuery = (dialect: string, tableSchema: string) => {
+  switch (dialect) {
+    case 'PLpgSQL':
+      return `
+        select
+          t.table_name as table_name,
+          (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from public.%I', t.table_name), FALSE, TRUE, '')))[1]::text::int AS record_count
+        from (select table_name from information_schema.tables where table_schema = '${tableSchema}') as t;
+      `;
+    case 'MYSQL':
+      return `
+        SELECT 
+          TABLE_NAME AS table_name,
+          SUM(TABLE_ROWS) as record_count
+        FROM INFORMATION_SCHEMA.TABLES
+        WHERE table_schema = '${tableSchema}' AND table_name != 'index_content';
+      `;
+    case 'TSQL':
+      return `
+        SELECT
+          o.NAME as table_name,
+          i.rowcnt AS record_count
+        FROM sysindexes AS i
+        INNER JOIN sysobjects AS o ON i.id = o.id 
+        WHERE i.indid < 2  AND OBJECTPROPERTY(o.id, 'IsMSShipped') = 0 AND o.name != 'index_content'
+        ORDER BY o.NAME;`;
+    default:
+      return '';
+  }
+};
 
 const gettingStarted = `-- Welcome to SQLPal! Steps to get started:
  
@@ -321,15 +317,8 @@ const middlewareReducer = async (
       const { connString, dialect } = payload.data;
       try {
         let schemaRes: any = undefined;
-        let initialQuery = '';
-        if (dialect === 'MYSQL') {
-          // todo: this need to replace the database name for the table schema
-          initialQuery = initialQueryMysql;
-        } else if (dialect === 'TSQL') {
-          initialQuery = initialQueryMssql;
-        } else {
-          initialQuery = initialQueryPg;
-        }
+        const dbId = connString.split('/')?.pop()?.split('?')?.[0] ?? '';
+        let initialQuery = generateInitialQuery(dialect, dbId);
         schemaRes = await DbActions.run(backendUrl, connString, initialQuery, dialect);
         const schema = {} as {
           [tableName: string]: { [columnName: string]: { dataType: string; isMandatory: boolean } } & {
