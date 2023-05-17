@@ -19,7 +19,7 @@ export enum ActionType {
   Disconnect = 'Disconnect',
   RunSql = 'RunSql',
   DiscoverSchema = 'DiscoverSchema',
-  SetDBConfig = 'SetConnString',
+  SetDBConfig = 'SetDBConfig',
   EditContent = 'EditContent',
   ValidateContent = 'ValidateContent',
   RunningSql = 'RunningSql',
