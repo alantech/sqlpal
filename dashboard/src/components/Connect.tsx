@@ -103,7 +103,7 @@ export default function Connect() {
               name='conn-str'
               value={connStr}
               setValue={SetConnStr}
-              placeholder='<your_user>:<your_password>@<your_host_ip>/<your_db>'
+              placeholder='<your_user>:<your_password>@<your_host_ip>/<your_db>[?<param>=<value>&<param>=<value>...]'
             />
           </VBox>
         </form>
