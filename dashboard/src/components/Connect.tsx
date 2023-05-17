@@ -22,7 +22,7 @@ export default function Connect() {
     },
     {
       key: 'TSQL',
-      name: 'SQL Server',
+      name: 'MS SQL Server',
       protocol: 'mssql',
     },
   ];
