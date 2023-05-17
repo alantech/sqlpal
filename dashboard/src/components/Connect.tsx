@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { LinkIcon } from '@heroicons/react/outline';
 
-import { Combobox, Input, Label, Step, VBox, Wizard } from './common';
+import { Input, Label, Step, VBox, Wizard } from './common';
 import { ActionType, useAppContext } from './providers/AppProvider';
 
 export default function Connect() {
@@ -27,9 +27,9 @@ export default function Connect() {
     },
   ];
 
-  const [connStr, SetConnStr] = useState('postgres:sqlpass@localdb:5432/sqlpal');
+  const [connString, SetConnString] = useState('postgresql://postgres:sqlpass@localdb:5432/sqlpal');
+  const [isValidConnString, SetIsValidConnString] = useState(true);
   const [stack, setStack] = useState(['addconn']);
-  const [selectedDialect, setSelectedDialect] = useState(dialects[0]);
 
   let nextEnabled = true;
   let backEnabled = false;
@@ -40,7 +40,7 @@ export default function Connect() {
   // the Next button should be enabled or not
   switch (current) {
     case 'addconn':
-      nextEnabled = !!connStr;
+      nextEnabled = !!connString && isValidConnString;
       closeButtonEnabled = true;
       break;
     default:
@@ -76,34 +76,29 @@ export default function Connect() {
           dispatch({ action: ActionType.ShowConnect, data: { showConnect: false } });
           dispatch({
             action: ActionType.SetDBConfig,
-            data: { connString: `${selectedDialect.protocol}://${connStr}`, dialect: selectedDialect.key },
+            data: {
+              connString,
+              dialect: dialects.find(d => d.protocol === connString.split(':')[0])?.key,
+            },
           });
         }}
       >
         <Label>
           <b>Let&apos;s connect a database</b>
         </Label>
-        <form className='mb-10'>
+        <form className='mb-10' noValidate>
           <VBox>
-            {/* TODO: The `htmlFor` does not work with Combobox yet */}
-            <Label htmlFor='db-dialect'>Database dialect</Label>
-            {/* TODO: Remove this div wrapper somehow */}
-            <div className='mt-1 flex rounded-md shadow-sm' style={{ zIndex: 999, maxHeight: '50em' }}>
-              <Combobox
-                data={dialects}
-                value={selectedDialect}
-                setValue={setSelectedDialect}
-                accessProp='name'
-              />
-            </div>
-            <Label htmlFor='conn-str'>Connection String</Label>
+            <Label htmlFor='conn-str'>Database URL</Label>
             <Input
               required
               type='text'
               name='conn-str'
-              value={connStr}
-              setValue={SetConnStr}
-              placeholder='<your_user>:<your_password>@<your_host_ip>/<your_db>[?<param>=<value>&<param>=<value>...]'
+              value={connString}
+              setValue={SetConnString}
+              placeholder='[postgresql|mysql|mssql]://<your_user>:<your_password>@<your_host_ip>/<your_db>[?<param>=<value>&<param>=<value>...]'
+              validator={/(postgresql|mysql|mssql)\:\/\/.+\:.+@.+\/[A-Za-z\d\-\_]+\?{0,1}/}
+              validationErrorMessage='Please enter a valid database URL following the format: [postgresql|mysql|mssql]://<your_user>:<your_password>@<your_host_ip>/<your_db>[?<param>=<value>&<param>=<value>...]'
+              setIsValid={SetIsValidConnString}
             />
           </VBox>
         </form>
