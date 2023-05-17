@@ -168,7 +168,14 @@ export default function IasqlEditor() {
             // trigger the repair call
             dispatch({
               action: ActionType.Repair,
-              data: { query: key, error: value, schema: schema, connString, tabIdx: editorSelectedTab },
+              data: {
+                query: key,
+                error: value,
+                schema: schema,
+                connString,
+                tabIdx: editorSelectedTab,
+                dialect,
+              },
             });
           }
         }
