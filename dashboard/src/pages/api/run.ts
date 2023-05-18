@@ -1,6 +1,14 @@
+import { knex } from 'knex';
 import { NextApiRequest, NextApiResponse } from 'next';
-import pg, { QueryResult } from 'pg';
+import { QueryResult } from 'pg';
 import { parse, deparse } from 'pgsql-parser';
+import { SQLDialect } from 'sql-surveyor';
+
+enum KnexClient {
+  MYSQL = 'mysql',
+  TSQL = 'mssql',
+  PLpgSQL = 'pg',
+}
 
 async function run(req: NextApiRequest, res: NextApiResponse) {
   console.log('Handling request', {
@@ -12,8 +20,8 @@ async function run(req: NextApiRequest, res: NextApiResponse) {
   try {
     const output = await until(
       (async () => {
-        const { connString, sql } = req.body;
-        const out = await runSql(sql, connString, res);
+        const { connString, sql, dialect } = req.body;
+        const out = await runSql(sql, connString, dialect);
         return out;
       })(),
       execTime - 100,
@@ -55,41 +63,28 @@ function until<T>(p: Promise<T>, timeout: number): Promise<T> {
   });
 }
 
-async function runSql(sql: string, connectionString: string, res: NextApiResponse) {
+async function runSql(sql: string, connectionString: string, dialect: keyof typeof SQLDialect) {
   const out: any = [];
-  let connTemp;
   const stmts = parse(sql);
   for (const stmt of stmts) {
-    const dbId = connectionString.split('/').pop();
+    const dbId = connectionString.split('/').pop()?.split('?')[0];
     const username = connectionString.split('/')[2].split(':')[0];
     const password = connectionString.split('/')[2].split(':')[1].split('@')[0];
     const host = connectionString.split('/')[2].split(':')[1].split('@')[1];
     const ssl = connectionString.includes('sslmode=require');
-    connTemp = new pg.Client({
-      database: dbId,
-      user: username,
-      password,
-      host,
-      ssl,
+    const client = knex({
+      client: KnexClient[dialect as keyof typeof KnexClient],
+      connection: {
+        database: dbId,
+        user: username,
+        password,
+        host,
+        ssl,
+      },
     });
-    // Based on https://node-postgres.com/apis/client#error
-    connTemp.on('error', e => {
-      console.error('Connection error', {
-        app: 'run',
-        meta: {
-          sql,
-          error: e.message,
-          stack: e.stack,
-        },
-      });
-      res.status(500).json({
-        error: `Connection interruption while executing query ${sql}`,
-      });
-    });
-    await connTemp.connect();
     const deparsedStmt = deparse(stmt);
     try {
-      const queryRes = await connTemp.query(deparsedStmt);
+      const queryRes = await client.raw(deparsedStmt);
       out.push({
         statement: deparsedStmt,
         queryRes,
@@ -97,31 +92,72 @@ async function runSql(sql: string, connectionString: string, res: NextApiRespons
     } catch (e) {
       throw e;
     } finally {
-      await connTemp?.end();
+      await client.destroy();
     }
   }
-  // Let's make this a bit easier to parse. Error -> error path, single table -> array of objects,
-  // multiple tables -> array of array of objects
-  return out.map((t: { statement: any; queryRes: QueryResult }) => {
-    if (
-      !!t.queryRes.rows &&
-      t.queryRes.rows.length === 0 &&
-      t.queryRes.command !== 'SELECT' &&
-      typeof t.queryRes.rowCount === 'number'
-    ) {
-      return { statement: t.statement, affected_records: t.queryRes.rowCount };
-    } else if (isString(t.queryRes)) {
-      return { statement: t.statement, result: t.queryRes };
-    } else if (!!t.queryRes.rows) {
-      return {
-        statement: t.statement,
-        result: t.queryRes.rows,
-        types: Object.fromEntries(t.queryRes.fields.map(f => [f.name, f.dataTypeID])),
-      };
-    } else {
-      return { statement: t.statement, error: `unexpected result: ${t.queryRes}` }; // TODO: Error this out
+  switch (KnexClient[dialect as keyof typeof KnexClient]) {
+    case KnexClient.PLpgSQL: {
+      // Let's make this a bit easier to parse. Error -> error path, single table -> array of objects,
+      // multiple tables -> array of array of objects
+      return out.map((t: { statement: any; queryRes: QueryResult }) => {
+        if (
+          !!t.queryRes.rows &&
+          t.queryRes.rows.length === 0 &&
+          t.queryRes.command !== 'SELECT' &&
+          typeof t.queryRes.rowCount === 'number'
+        ) {
+          return { statement: t.statement, affected_records: t.queryRes.rowCount };
+        } else if (isString(t.queryRes)) {
+          return { statement: t.statement, result: t.queryRes };
+        } else if (!!t.queryRes.rows) {
+          return {
+            statement: t.statement,
+            result: t.queryRes.rows,
+            types: Object.fromEntries(t.queryRes.fields.map(f => [f.name, f.dataTypeID])),
+          };
+        } else {
+          return { statement: t.statement, error: `unexpected result: ${t.queryRes}` }; // TODO: Error this out
+        }
+      });
     }
-  });
+    case KnexClient.MYSQL: {
+      return out.map((t: { statement: any; queryRes: any }) => {
+        const [result, fields] = t.queryRes;
+        if (
+          !!result &&
+          result.affectedRows !== undefined &&
+          result.affectedRows !== null &&
+          typeof result.affectedRows === 'number'
+        ) {
+          return { statement: t.statement, affected_records: result.affectedRows };
+        } else if (!!result && result.length > 0 && typeof result[0] === 'object') {
+          return {
+            statement: t.statement,
+            result,
+            types: Object.fromEntries(fields.map((f: any) => [f.name, f.type])),
+          };
+        } else {
+          return { statement: t.statement, error: `unexpected result: ${JSON.stringify(t.queryRes)}` }; // TODO: Error this out
+        }
+      });
+    }
+    case KnexClient.TSQL: {
+      return out.map((t: { statement: any; queryRes: any }) => {
+        const result = t.queryRes;
+        if (!!result && Array.isArray(result) && !t.statement.includes('SELECT') && result.length === 0) {
+          // todo: improve this
+          return { statement: t.statement, affected_records: 'unknown' };
+        } else if (!!result) {
+          return { statement: t.statement, result };
+        } else {
+          return { statement: t.statement, error: `unexpected result: ${JSON.stringify(t.queryRes)}` }; // TODO: Error this out
+        }
+      });
+    }
+    default: {
+      return out;
+    }
+  }
 }
 
 function isString(obj: unknown): obj is string {

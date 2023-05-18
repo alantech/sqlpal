@@ -41,6 +41,7 @@ export default function IasqlEditor() {
     connString,
     schema,
     parseErrorsByStmt,
+    dialect,
   } = useAppContext();
 
   // Refs
@@ -84,6 +85,7 @@ export default function IasqlEditor() {
           forceRun,
           editorTabs,
           connString,
+          dialect,
         },
       });
     }
@@ -136,6 +138,7 @@ export default function IasqlEditor() {
             content: contentToBeRun,
             tabIdx,
             connString,
+            dialect,
           },
         });
       }
@@ -165,7 +168,14 @@ export default function IasqlEditor() {
             // trigger the repair call
             dispatch({
               action: ActionType.Repair,
-              data: { query: key, error: value, schema: schema, connString, tabIdx: editorSelectedTab },
+              data: {
+                query: key,
+                error: value,
+                schema: schema,
+                connString,
+                tabIdx: editorSelectedTab,
+                dialect,
+              },
             });
           }
         }
@@ -206,7 +216,7 @@ export default function IasqlEditor() {
   const handleEditorContentValidation = debounce(() => {
     dispatch({
       action: ActionType.ValidateContent,
-      data: { content: editorRef?.current?.editor.getValue(), schema },
+      data: { content: editorRef?.current?.editor.getValue(), schema, dialect },
     });
   }, 500);
 
@@ -274,7 +284,7 @@ export default function IasqlEditor() {
       // Dispatch suggestion
       dispatch({
         action: ActionType.GetSuggestions,
-        data: { query: contextText, connString, tabIdx: editorSelectedTab, schema },
+        data: { query: contextText, connString, tabIdx: editorSelectedTab, schema, dialect },
       });
     }
   };

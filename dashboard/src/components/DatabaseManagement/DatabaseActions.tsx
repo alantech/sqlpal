@@ -4,7 +4,7 @@ import { PauseIcon, PlayIcon } from '@heroicons/react/solid';
 import { align, Button, HBox } from '../common';
 
 export function DatabaseActions() {
-  const { editorSelectedTab, editorTabs, connString, dispatch, token } = useAppContext();
+  const { editorSelectedTab, editorTabs, connString, dispatch, token, dialect } = useAppContext();
 
   const handleDisconnect = () => {
     dispatch({ action: ActionType.ShowDisconnect, data: { show: true } });
@@ -15,7 +15,7 @@ export function DatabaseActions() {
       dispatch({
         token,
         action: ActionType.RunSql,
-        data: { connString, content, tabIdx },
+        data: { connString, content, tabIdx, dialect },
       });
     }
   };
