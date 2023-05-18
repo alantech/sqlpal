@@ -123,7 +123,8 @@ const getRecordCountByTableQuery = (dialect: string, tableSchema: string) => {
           TABLE_NAME AS table_name,
           SUM(TABLE_ROWS) as record_count
         FROM INFORMATION_SCHEMA.TABLES
-        WHERE table_schema = '${tableSchema}' AND table_name != 'index_content';
+        WHERE table_schema = '${tableSchema}' AND table_name != 'index_content'
+        GROUP BY TABLE_NAME;
       `;
     case 'TSQL':
       return `
@@ -183,7 +184,21 @@ const reducer = (state: AppState, payload: Payload): AppState => {
       return { ...state, databases: initialDatabases, latestVersion, oldestVersion, token };
     }
     case ActionType.Disconnect: {
-      return { ...state, connString: '', shouldShowDisconnect: false };
+      // Reset editor tabs
+      const tabsCopy = [...state.editorTabs].filter(t => t.title === 'Getting started' || t.title === '+');
+      if (tabsCopy.length && tabsCopy[0] && tabsCopy[0].title === 'Getting started') {
+        tabsCopy[0].content = gettingStarted;
+        tabsCopy[0].queryRes = null;
+        tabsCopy[0].suggestions = [];
+      }
+      return {
+        ...state,
+        connString: '',
+        shouldShowDisconnect: false,
+        editorTabs: tabsCopy,
+        editorSelectedTab: 0,
+        editorTabsCreated: 1,
+      };
     }
     case ActionType.EditContent: {
       const { content } = payload.data;

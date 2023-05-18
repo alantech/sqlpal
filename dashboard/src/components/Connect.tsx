@@ -27,7 +27,7 @@ export default function Connect() {
     },
   ];
 
-  const [connString, SetConnString] = useState('postgresql://postgres:sqlpass@localdb:5432/sqlpal');
+  const [connString, SetConnString] = useState('postgresql://sqlpaluser:sqlpass@local_pg:5432/sqlpal');
   const [isValidConnString, SetIsValidConnString] = useState(true);
   const [stack, setStack] = useState(['addconn']);
 
