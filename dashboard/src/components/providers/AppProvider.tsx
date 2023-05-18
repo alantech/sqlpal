@@ -139,7 +139,21 @@ const reducer = (state: AppState, payload: Payload): AppState => {
       return { ...state, databases: initialDatabases, latestVersion, oldestVersion, token };
     }
     case ActionType.Disconnect: {
-      return { ...state, connString: '', shouldShowDisconnect: false };
+      // Reset editor tabs
+      const tabsCopy = [...state.editorTabs].filter(t => t.title === 'Getting started' || t.title === '+');
+      if (tabsCopy.length && tabsCopy[0] && tabsCopy[0].title === 'Getting started') {
+        tabsCopy[0].content = gettingStarted;
+        tabsCopy[0].queryRes = null;
+        tabsCopy[0].suggestions = [];
+      }
+      return {
+        ...state,
+        connString: '',
+        shouldShowDisconnect: false,
+        editorTabs: tabsCopy,
+        editorSelectedTab: 0,
+        editorTabsCreated: 1,
+      };
     }
     case ActionType.EditContent: {
       const { content } = payload.data;
