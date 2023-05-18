@@ -24,7 +24,7 @@ services:
       POSTGRES_PASSWORD: sqlpass
       POSTGRES_DB: sqlpal
     volumes:
-      - ./sqlpal-server/fixtures/test_schema.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./sqlpal-server/fixtures/test_schema_pg.sql:/docker-entrypoint-initdb.d/init.sql
   mysql:
     # mysql://sqlpaluser:sqlpass@local_mysql:3306/sqlpal
     container_name: sqlpal_db_mysql
