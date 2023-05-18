@@ -7,6 +7,13 @@ type Schema = {
   };
 };
 
+interface ValidateRequest {
+  content: string;
+  schema: Schema;
+  dialect: keyof typeof SQLDialect;
+  fromServer?: boolean;
+}
+
 // Regex to extract function arguments
 const functionRegex = /^\s*\w+\s*\(/;
 const argumentRegex = /^\s*(\w+)\s*\((.*)\)/g;
@@ -17,15 +24,17 @@ async function validate(req: NextApiRequest, res: NextApiResponse) {
     meta: req.body,
   });
   const t1 = Date.now();
-  const { content, schema } = req.body;
+  const body: ValidateRequest = req.body;
   let validationErr: string;
   try {
-    // TODO: make dialect configurable
-    const surveyor = new SQLSurveyor(SQLDialect.PLpgSQL);
-    const parsedSql = surveyor.survey(content);
+    const dialect = extractDialect(body.dialect, body.fromServer);
+    const surveyor = new SQLSurveyor(SQLDialect[dialect] ?? SQLDialect.PLpgSQL);
+    const parsedSql = surveyor.survey(body.content);
     if (parsedSql && parsedSql.parsedQueries && Object.keys(parsedSql.parsedQueries).length > 0) {
       console.dir(parsedSql, { depth: null });
-      validationErr = validateParsedSql(parsedSql, schema);
+      // Make sure that all tableNames and columnNames in body.schema are lowercase
+      const normalizedSchema: Schema = normalizeSchema(body.schema);
+      validationErr = validateParsedSql(parsedSql, normalizedSchema);
       console.log(`validation error: ${validationErr}`);
     } else if (content && (content as string).startsWith('--')) {
       validationErr = '';
@@ -48,6 +57,35 @@ async function validate(req: NextApiRequest, res: NextApiResponse) {
 }
 
 export default validate;
+
+function normalizeSchema(schema: Schema): Schema {
+  const normalizedSchema: Schema = {};
+  for (const [tableName, table] of Object.entries(schema)) {
+    const normalizedTable: any = {};
+    for (const [columnName, column] of Object.entries(table)) {
+      normalizedTable[columnName.toLowerCase()] = column;
+    }
+    normalizedSchema[tableName.toLowerCase()] = normalizedTable;
+  }
+  return normalizedSchema;
+}
+
+function extractDialect(dialect: string, fromServer = false): keyof typeof SQLDialect {
+  if (fromServer) {
+    // Python sql alchemy dialects are: 'postgresql', 'mysql', 'oracle', 'mssql'
+    switch (dialect) {
+      case 'mysql':
+        return 'MYSQL';
+      case 'oracle':
+        return SQLDialect.PLSQL;
+      case 'mssql':
+        return SQLDialect.TSQL;
+      default:
+        return SQLDialect.PLpgSQL;
+    }
+  }
+  return dialect as keyof typeof SQLDialect;
+}
 
 function validateParsedSql(parsedSql: ParsedSql, schema: Schema): string {
   let errs: string[] = [];
@@ -89,7 +127,7 @@ function validateTables(parsedQuery: ParsedQuery, schema: Schema): string[] {
   let errs: string[] = [];
   const tables = parsedQuery.referencedTables;
   for (const table of Object.values(tables)) {
-    if (table.tableName && !schema[table.tableName]) {
+    if (table.tableName && !schema[table.tableName.toLowerCase()]) {
       errs.push(`Table "${table.tableName}" does not exist in schema`);
     }
   }
@@ -126,7 +164,11 @@ function validateOutputColumns(parsedQuery: ParsedQuery, schema: Schema): string
     });
     // Check errors for each column name
     for (const columnName of columnNames) {
-      if (columnName && !columnName.includes('*') && !tables.some(t => schema[t]?.[columnName])) {
+      if (
+        columnName &&
+        !columnName.includes('*') &&
+        !tables.some(t => schema[t.toLowerCase()]?.[columnName.toLowerCase()])
+      ) {
         errs.push(`Column "${columnName}" does not exist in tables "${tables.join(', ')}"`);
       }
     }
@@ -139,7 +181,7 @@ function validateReferencedColumns(parsedQuery: ParsedQuery, schema: Schema): st
   const tables = Object.keys(parsedQuery.referencedTables);
   const columns = parsedQuery.referencedColumns;
   for (const column of Object.values(columns)) {
-    if (column.columnName && !tables.some(t => schema[t]?.[column.columnName])) {
+    if (column.columnName && !tables.some(t => schema[t.toLowerCase()]?.[column.columnName.toLowerCase()])) {
       errs.push(`Column "${column.columnName}" does not exist in tables "${tables.join(', ')}"`);
     }
   }

@@ -16,7 +16,7 @@ Base = declarative_base()
 class IndexContent(Base):
     __tablename__ = 'index_content'
     id = Column(Integer, primary_key=True)
-    name = Column(String)
+    name = Column(String(54))
     content = Column(LargeBinary)
 
 

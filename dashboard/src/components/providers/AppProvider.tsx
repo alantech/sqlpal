@@ -11,12 +11,15 @@ const useAppContext = () => {
   return useContext(AppContext);
 };
 
+// Following `sql-surveyor`'s convention
+export type SQLDialects = 'PLpgSQL' | 'MYSQL' | 'TSQL';
+
 export enum ActionType {
   InitialLoad = 'InitialLoad',
   Disconnect = 'Disconnect',
   RunSql = 'RunSql',
   DiscoverSchema = 'DiscoverSchema',
-  SetConnString = 'SetConnString',
+  SetDBConfig = 'SetDBConfig',
   EditContent = 'EditContent',
   ValidateContent = 'ValidateContent',
   RunningSql = 'RunningSql',
@@ -46,6 +49,7 @@ interface AppState {
   oldestVersion?: string;
   latestVersion?: string;
   connString: string;
+  dialect: SQLDialects;
   isRunningSql: boolean;
   databases: any[];
   error: string | null;
@@ -80,24 +84,60 @@ interface AppStore extends AppState {
   dispatch: (payload: Payload) => Promise<void>;
 }
 
-const initialQuery = `
-  select c.table_name,
-         c.ordinal_position,
-         c.column_name,
-         c.data_type,
-         c.is_nullable,
-         c.column_default
-  from information_schema.columns as c
-  inner join information_schema.tables as t
-    on c.table_name = t.table_name
-  where t.table_schema = 'public' and c.table_name != 'index_content'
-  order by table_name, ordinal_position;
+const generateInitialQuery = (dialect: SQLDialects, dbId?: string) => {
+  const tableSchemaBasedOnDialect = {
+    PLpgSQL: 'public',
+    MYSQL: dbId ?? 'mysql',
+    TSQL: 'dbo',
+  };
+  const columnInfoByTableQuery = getColumnInfoByTableQuery(tableSchemaBasedOnDialect[dialect]);
+  const recordCountByTableQuery = getRecordCountByTableQuery(dialect, tableSchemaBasedOnDialect[dialect]);
+  return `${columnInfoByTableQuery}; ${recordCountByTableQuery}`;
+};
 
-  select
-    t.table_name as table_name,
-    (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from public.%I', t.table_name), FALSE, TRUE, '')))[1]::text::int AS record_count
-  from (select table_name from information_schema.tables where table_schema = 'public') as t;
+const getColumnInfoByTableQuery = (tableSchema: string) => `
+  select c.table_name as table_name,
+         c.ordinal_position as ordinal_position,
+         c.column_name as column_name,
+         c.data_type as data_type,
+         c.is_nullable as is_nullable,
+         c.column_default as column_default
+  from information_schema.columns as c
+  inner join information_schema.tables as t on c.table_name = t.table_name
+  where t.table_schema = '${tableSchema}' and c.table_name != 'index_content'
+  order by table_name, ordinal_position; 
 `;
+
+const getRecordCountByTableQuery = (dialect: string, tableSchema: string) => {
+  switch (dialect) {
+    case 'PLpgSQL':
+      return `
+        select
+          t.table_name as table_name,
+          (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from public.%I', t.table_name), FALSE, TRUE, '')))[1]::text::int AS record_count
+        from (select table_name from information_schema.tables where table_schema = '${tableSchema}') as t;
+      `;
+    case 'MYSQL':
+      return `
+        SELECT 
+          TABLE_NAME AS table_name,
+          SUM(TABLE_ROWS) as record_count
+        FROM INFORMATION_SCHEMA.TABLES
+        WHERE table_schema = '${tableSchema}' AND table_name != 'index_content';
+      `;
+    case 'TSQL':
+      return `
+        SELECT
+          o.NAME as table_name,
+          i.rowcnt AS record_count
+        FROM sysindexes AS i
+        INNER JOIN sysobjects AS o ON i.id = o.id 
+        WHERE i.indid < 2  AND OBJECTPROPERTY(o.id, 'IsMSShipped') = 0 AND o.name != 'index_content'
+        ORDER BY o.NAME;`;
+    default:
+      return '';
+  }
+};
 
 const gettingStarted = `-- Welcome to SQLPal! Steps to get started:
  
@@ -111,11 +151,15 @@ const gettingStarted = `-- Welcome to SQLPal! Steps to get started:
 -- Happy coding :)
 `;
 
-const validateSql = async (stmt: string, schema: AppState['schema']): Promise<string> => {
+const validateSql = async (
+  stmt: string,
+  schema: AppState['schema'],
+  dialect: SQLDialects,
+): Promise<string> => {
   let validationErr = '';
   try {
     const sqlParseRes = await fetch(`/api/sqlParser/validate`, {
-      body: JSON.stringify({ content: stmt, schema }),
+      body: JSON.stringify({ content: stmt, schema, dialect }),
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -227,9 +271,9 @@ const reducer = (state: AppState, payload: Payload): AppState => {
         forceRun: true,
       };
     }
-    case ActionType.SetConnString: {
-      const { connString, schema } = payload.data;
-      return { ...state, connString, schema };
+    case ActionType.SetDBConfig: {
+      const { connString, schema, dialect } = payload.data;
+      return { ...state, connString, schema, dialect };
     }
     case ActionType.GetSuggestions: {
       const { suggestions, tabIdx } = payload.data;
@@ -266,10 +310,13 @@ const middlewareReducer = async (
   const { token } = payload;
   const { backendUrl, serverUrl } = config?.engine;
   switch (payload.action) {
-    case ActionType.SetConnString: {
-      const { connString } = payload.data;
+    case ActionType.SetDBConfig: {
+      const { connString, dialect } = payload.data;
       try {
-        const schemaRes = await DbActions.run(backendUrl, connString, initialQuery);
+        let schemaRes: any = undefined;
+        const dbId = connString.split('/')?.pop()?.split('?')?.[0] ?? '';
+        const initialQuery = generateInitialQuery(dialect, dbId);
+        schemaRes = await DbActions.run(backendUrl, connString, initialQuery, dialect);
         const schema = {} as {
           [tableName: string]: { [columnName: string]: { dataType: string; isMandatory: boolean } } & {
             recordCount: number;
@@ -288,14 +335,14 @@ const middlewareReducer = async (
           schema[tableName][columnName] = { dataType, isMandatory };
           schema[tableName]['recordCount'] = recordCount;
         });
-        dispatch({ ...payload, data: { connString, schema } });
+        dispatch({ ...payload, data: { connString, schema, dialect } });
       } catch (e: any) {
         const error = e.message ? e.message : `Unexpected error setting connection string`;
         dispatch({ ...payload, data: { error } });
         break;
       }
       try {
-        await DbActions.discoverData(serverUrl, connString);
+        await DbActions.discoverData(serverUrl, connString, dialect);
       } catch (e) {
         console.log(`/discover failed with error: ${e}.`);
       }
@@ -323,14 +370,14 @@ const middlewareReducer = async (
         dispatch({ ...payload, data: { error: 'No auth token defined.' } });
         break;
       }
-      const { content, tabIdx, connString } = payload.data;
+      const { content, tabIdx, connString, dialect } = payload.data;
       if (!connString) break;
       let queryRes: any = 'Invalid or empty response';
       let queryError: string = 'Unhandled error in SQL execution';
       dispatch({ action: ActionType.RunningSql, data: { isRunning: true, tabIdx } });
       try {
         if (token && content) {
-          queryRes = await DbActions.run(backendUrl, connString, content);
+          queryRes = await DbActions.run(backendUrl, connString, content, dialect);
         }
       } catch (e: any) {
         if (e.message) {
@@ -343,7 +390,7 @@ const middlewareReducer = async (
       // add the query to the index
       if (queryRes && queryRes.length > 0) {
         try {
-          await DbActions.addStatement(serverUrl, connString, queryRes[0].statement ?? '');
+          await DbActions.addStatement(serverUrl, connString, queryRes[0].statement ?? '', dialect);
         } catch (e) {
           console.error(e);
         }
@@ -351,9 +398,9 @@ const middlewareReducer = async (
       break;
     }
     case ActionType.EditorSelectTab: {
-      const { connString, forceRun, index, editorTabs } = payload.data;
+      const { connString, forceRun, index, editorTabs, dialect } = payload.data;
       const contentToBeRun = editorTabs?.[index]?.content ?? '';
-      if (token && forceRun && contentToBeRun) {
+      if (token && forceRun && contentToBeRun && dialect) {
         middlewareReducer(config, dispatch, {
           token,
           action: ActionType.RunSql,
@@ -361,6 +408,7 @@ const middlewareReducer = async (
             connString,
             content: contentToBeRun,
             tabIdx: index,
+            dialect,
           },
         });
       }
@@ -368,15 +416,15 @@ const middlewareReducer = async (
       break;
     }
     case ActionType.GetSuggestions: {
-      const { connString, query, tabIdx, schema } = payload.data;
+      const { connString, query, tabIdx, schema, dialect } = payload.data;
       if (!connString) break;
       let suggestions: any[] = [];
       try {
-        const autocompleteRes = await DbActions.autocomplete(serverUrl, connString, query);
+        const autocompleteRes = await DbActions.autocomplete(serverUrl, connString, query, dialect);
         if (autocompleteRes['suggestions'] && Array.isArray(autocompleteRes['suggestions'])) {
           // validate the suggestions and return the first valid one
           for (const suggestion of autocompleteRes['suggestions']) {
-            const validationError = await validateSql(suggestion, schema);
+            const validationError = await validateSql(suggestion, schema, dialect);
             if (validationError) continue;
             else {
               suggestions = [{ value: suggestion, meta: 'custom', score: 1000 }];
@@ -396,15 +444,15 @@ const middlewareReducer = async (
       break;
     }
     case ActionType.Repair: {
-      const { connString, query, error, tabIdx, schema } = payload.data;
+      const { connString, query, error, tabIdx, schema, dialect } = payload.data;
       if (!connString) break;
       let suggestions: any[] = [];
       try {
-        const repairRes = await DbActions.repair(serverUrl, connString, query, error);
+        const repairRes = await DbActions.repair(serverUrl, connString, query, error, dialect);
         if (repairRes['suggestions'] && Array.isArray(repairRes['suggestions'])) {
           // validate the suggestions and return the first valid one
           for (const suggestion of repairRes['suggestions']) {
-            const validationError = await validateSql(suggestion, schema);
+            const validationError = await validateSql(suggestion, schema, dialect);
             if (validationError) continue;
             else {
               suggestions = [{ value: suggestion }];
@@ -424,14 +472,14 @@ const middlewareReducer = async (
       break;
     }
     case ActionType.ValidateContent: {
-      const { content, schema } = payload.data;
+      const { content, schema, dialect } = payload.data;
       const statements = content
         .split(';')
         .map((s: string) => s.trim())
         .filter((s: string) => s.length > 0);
       const parseErrorsByStmt: { [stmt: string]: string } = {};
       for (const stmt of statements) {
-        parseErrorsByStmt[stmt] = await validateSql(stmt, schema);
+        parseErrorsByStmt[stmt] = await validateSql(stmt, schema, dialect);
       }
       dispatch({ ...payload, data: { parseErrorsByStmt } });
       break;
@@ -455,6 +503,7 @@ const AppProvider = ({ children }: { children: any }) => {
     shouldShowDisconnect: false,
     shouldShowConnect: false,
     connString: '',
+    dialect: 'PLpgSQL',
     editorSelectedTab: 0,
     editorTabsCreated: 1,
     editorTabs: [
@@ -496,6 +545,7 @@ const AppProvider = ({ children }: { children: any }) => {
         shouldShowDisconnect: state.shouldShowDisconnect,
         shouldShowConnect: state.shouldShowConnect,
         connString: state.connString,
+        dialect: state.dialect,
         editorTabs: state.editorTabs,
         editorSelectedTab: state.editorSelectedTab,
         editorTabsCreated: state.editorTabsCreated,

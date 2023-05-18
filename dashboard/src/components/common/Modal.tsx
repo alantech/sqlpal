@@ -60,7 +60,7 @@ export default function Modal({
             leaveFrom='opacity-100 translate-y-0 sm:scale-100'
             leaveTo='opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95'
           >
-            <div className='relative inline-block align-bottom bg-white dark:bg-gray-900 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full'>
+            <div className='relative inline-block align-bottom bg-white dark:bg-gray-900 rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full'>
               <div className='bg-white dark:bg-gray-900 text-right flex flex-row w-full'>
                 {!!icon && closeable && (
                   <div className='flex-none inline-flex justify-center mt-6 ml-6 py-1 px-1 border border-transparent'>
