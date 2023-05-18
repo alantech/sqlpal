@@ -27,8 +27,10 @@ async function validate(req: NextApiRequest, res: NextApiResponse) {
       console.dir(parsedSql, { depth: null });
       validationErr = validateParsedSql(parsedSql, schema);
       console.log(`validation error: ${validationErr}`);
+    } else if (content && (content as string).startsWith('--')) {
+      validationErr = '';
     } else {
-      return res.status(400).json({ message: 'Invalid query' });
+      validationErr = 'Invalid query';
     }
   } catch (e: any) {
     return res.status(400).json({ message: e?.message ?? 'Unknown error' });
