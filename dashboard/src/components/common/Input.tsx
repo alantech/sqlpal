@@ -8,6 +8,7 @@ export default function Input({
   required,
   validator,
   validationErrorMessage,
+  setIsValid,
   onChange,
   placeholder,
 }: {
@@ -18,6 +19,7 @@ export default function Input({
   required?: boolean;
   validator?: RegExp;
   validationErrorMessage?: string;
+  setIsValid: (arg0: boolean) => void;
   onChange?: (arg0: any) => void;
   placeholder?: string;
 }) {
@@ -25,8 +27,10 @@ export default function Input({
   const validateInput = (e: any) => {
     if (!e.target.value.match(validator)) {
       setValidationError(validationErrorMessage ?? 'Invalid input');
+      setIsValid(false);
     } else {
       setValidationError('');
+      setIsValid(true);
     }
   };
   const className =

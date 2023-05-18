@@ -3,8 +3,19 @@ FROM node:lts-bullseye-slim AS base
 
 ## Install OS Packages
 RUN apt update
-RUN apt install --no-install-recommends curl jq gnupg ca-certificates python3-pip python3-venv supervisor  -y \
+RUN apt install --no-install-recommends curl jq gnupg ca-certificates python3-pip python3-venv supervisor default-libmysqlclient-dev -y \
   && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && mkdir -p /etc/supervisor/conf.d
+
+## Install mssql dependencies. Following: https://learn.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server?view=sql-server-ver16&tabs=debian18-install%2Calpine17-install%2Cdebian8-install%2Credhat7-13-install%2Crhel7-offline#18
+RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
+
+### Download appropriate package for the OS version
+### Debian 11
+RUN curl https://packages.microsoft.com/config/debian/11/prod.list > /etc/apt/sources.list.d/mssql-release.list
+
+RUN apt update
+RUN ACCEPT_EULA=Y apt install -y msodbcsql18 \
+  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 #####################################################################################################################################################
 

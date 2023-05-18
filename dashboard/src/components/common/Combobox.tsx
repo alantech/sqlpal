@@ -14,7 +14,7 @@ export default function Combobox({
   setValue: (arg0: any) => void;
   accessProp: string;
 }) {
-  const [selected, setSelected] = useState(value);
+  const [currentValue, setCurrentValue] = useState(value);
   const [query, setQuery] = useState('');
 
   const filteredData =
@@ -27,10 +27,11 @@ export default function Combobox({
   return (
     <div className='w-full'>
       <ComboboxBase
-        value={selected}
-        onChange={sel => {
-          setSelected(sel);
-          setValue(sel);
+        value={currentValue}
+        by={accessProp}
+        onChange={val => {
+          setCurrentValue(val);
+          setValue(val);
         }}
       >
         <div className='relative mt-1'>
@@ -62,7 +63,7 @@ export default function Combobox({
                     key={d[accessProp]}
                     className={({ active }) =>
                       `cursor-pointer select-none relative py-2 pl-10 pr-4 ${
-                        active ? 'text-primary bg-teal-600' : 'text-gray-900 dark:text-gray-100'
+                        active ? 'text-white bg-teal-600' : 'text-gray-900 dark:text-gray-100'
                       }`
                     }
                     value={d}

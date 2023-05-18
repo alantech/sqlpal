@@ -266,7 +266,7 @@ def generate_queries_for_schema(schema, schema_dict, dialect):
     final_queries = []
     for q in queries:
         try:
-            validation_err = validate_query(q, schema_dict)
+            validation_err = validate_query(q, schema_dict, dialect)
             if validation_err is not None:
                 logger.info("Query {} not valid: {}".format(q, validation_err))
                 continue
@@ -277,9 +277,9 @@ def generate_queries_for_schema(schema, schema_dict, dialect):
     return final_queries
 
 
-def validate_query(query, schema_dict):
+def validate_query(query, schema_dict, dialect):
     try:
-        request = {'content': query, 'schema': schema_dict}
+        request = {'content': query, 'schema': schema_dict, 'dialect': dialect, 'fromServer': True }
         response = requests.post(
             'http://localhost:9876/api/sqlParser/validate', json=request,)
         if response.status_code == 400:

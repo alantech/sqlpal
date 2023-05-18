@@ -8,7 +8,27 @@ import { ActionType, useAppContext } from './providers/AppProvider';
 export default function Connect() {
   const { dispatch } = useAppContext();
 
-  const [connStr, SetConnStr] = useState('postgres://postgres:sqlpass@localdb:5432/sqlpal');
+  // Key should be `keyof typeof SQLDialect` from sql-surveyor
+  const dialects = [
+    {
+      key: 'PLpgSQL',
+      name: 'Postgres',
+      protocol: 'postgresql',
+    },
+    {
+      key: 'MYSQL',
+      name: 'MySQL',
+      protocol: 'mysql',
+    },
+    {
+      key: 'TSQL',
+      name: 'MS SQL Server',
+      protocol: 'mssql',
+    },
+  ];
+
+  const [connString, SetConnString] = useState('postgresql://postgres:sqlpass@localdb:5432/sqlpal');
+  const [isValidConnString, SetIsValidConnString] = useState(true);
   const [stack, setStack] = useState(['addconn']);
 
   let nextEnabled = true;
@@ -20,7 +40,7 @@ export default function Connect() {
   // the Next button should be enabled or not
   switch (current) {
     case 'addconn':
-      nextEnabled = !!connStr;
+      nextEnabled = !!connString && isValidConnString;
       closeButtonEnabled = true;
       break;
     default:
@@ -54,22 +74,31 @@ export default function Connect() {
         id='addconn'
         onFinish={() => {
           dispatch({ action: ActionType.ShowConnect, data: { showConnect: false } });
-          dispatch({ action: ActionType.SetConnString, data: { connString: connStr } });
+          dispatch({
+            action: ActionType.SetDBConfig,
+            data: {
+              connString,
+              dialect: dialects.find(d => d.protocol === connString.split(':')[0])?.key,
+            },
+          });
         }}
       >
         <Label>
           <b>Let&apos;s connect a database</b>
         </Label>
-        <form className='mb-10'>
+        <form className='mb-10' noValidate>
           <VBox>
-            <Label htmlFor='conn-str'>Connection String</Label>
+            <Label htmlFor='conn-str'>Database URL</Label>
             <Input
               required
               type='text'
               name='conn-str'
-              value={connStr}
-              setValue={SetConnStr}
-              placeholder='postgresql://postgres:sqlpass@<your_host_ip>/sqlpal'
+              value={connString}
+              setValue={SetConnString}
+              placeholder='[postgresql|mysql|mssql]://<your_user>:<your_password>@<your_host_ip>/<your_db>[?<param>=<value>&<param>=<value>...]'
+              validator={/(postgresql|mysql|mssql)(\:\/\/.+\:.+@.+\/[A-Za-z\d\-\_]+)/g}
+              validationErrorMessage='Please enter a valid database URL following the format: [postgresql|mysql|mssql]://<your_user>:<your_password>@<your_host_ip>/<your_db>[?<param>=<value>&<param>=<value>...]'
+              setIsValid={SetIsValidConnString}
             />
           </VBox>
         </form>
