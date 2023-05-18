@@ -13,6 +13,7 @@ services:
       - /tmp/indexes
     container_name: sqlpal
   pg:
+    # postgresql://sqlpaluser:sqlpass@local_pg:5432/sqlpal
     container_name: sqlpal_db_pg
     hostname: local_pg
     image: postgres:latest
@@ -39,17 +40,32 @@ services:
       MYSQL_DATABASE: "sqlpal"
     volumes:
       - ./sqlpal-server/fixtures/test_schema_mysql.sql:/docker-entrypoint-initdb.d/init.sql
-  # mssql:
-  #   container_name: sqlpal_db_mssql
-  #   hostname: local_mssql
-  #   image: mcr.microsoft.com/mssql/server:2019-latest
-  #   ports:
-  #     - "1433:1433"
-  #   environment:
-  #     POSTGRES_PASSWORD: sqlpass
-  #     POSTGRES_DB: sqlpal
-  #     ACCEPT_EULA: Y
-  #     MSSQL_SA_PASSWORD: myStrong(!)Password
-  #     MSSQL_PID: Express
-  #   volumes:
-  #     - ./sqlpal-server/fixtures/test_schema.sql:/docker-entrypoint-initdb.d/init.sql
+  mssql:
+    # mssql://sqlpaluser:sqlpass@local_mssql:1433/sqlpal
+    container_name: sqlpal_db_mssql
+    hostname: local_mssql
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    ports:
+      - "1433:1433"
+    environment:
+      ACCEPT_EULA: Y
+      MSSQL_SA_PASSWORD: strongPassword123
+      MSSQL_PID: Express
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P strongPassword123 -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      retries: 10
+      start_period: 10s
+      timeout: 3s
+  mssql.configurator:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    depends_on:
+      mssql:
+        condition: service_healthy
+    command: >
+      bash -c '
+      /opt/mssql-tools/bin/sqlcmd -S mssql -U sa -P strongPassword123 -d master -i docker-entrypoint-initdb.d/init.sql;
+      echo "All done!";
+      '
+    volumes:
+      - ./sqlpal-server/fixtures/test_schema_mssql.sql:/docker-entrypoint-initdb.d/init.sql
