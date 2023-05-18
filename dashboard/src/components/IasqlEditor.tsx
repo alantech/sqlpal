@@ -47,6 +47,7 @@ export default function IasqlEditor() {
   const editorRef = useRef(null as null | ReactAce);
   const prevTabsLenRef = useRef(null as null | number);
   const loadingDotsRef = useRef(null as null | NodeJS.Timeout);
+  const suggestionsAbortControllerRef = useRef(null as null | AbortController);
 
   // Custom hooks
   const tabToAcceptLS = localStorage.getItem('tabToAccept');
@@ -145,20 +146,39 @@ export default function IasqlEditor() {
     [dispatch, token],
   );
 
+  // Abort previous request
+  const abortIfNecessaryAndReturnSignal = () => {
+    if (suggestionsAbortControllerRef.current) {
+      suggestionsAbortControllerRef.current.abort();
+    }
+    suggestionsAbortControllerRef.current = new AbortController();
+    return suggestionsAbortControllerRef.current.signal;
+  };
+
   // detect clicks on the editor
-  const handleEditorClick = (e: MouseEvent) => {
+  const handleEditorClick = useCallback((e: MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target?.className?.includes('ace_error') && target?.className?.includes('ace_gutter-cell')) {
-      clearSuggestions();
       // Interval to show loading dots
       const editor = editorRef?.current?.editor;
-      if (editor) removeLoadingDots(editor);
-      if (editor) loadingDotsRef.current = generateLoadingDots(editor, 'Repairing query');
+      if (editor) {
+        clearSuggestions();
+        const position = editor.getCursorPosition();
+        console.log('position', position);
+        const lastCol = editor.session.getLine(position.row).length;
+        console.log(`lastCol: ${lastCol}`);
+        editor.moveCursorTo(position.row, lastCol);
+        editor?.selection?.clearSelection();
+        if (loadingDotsRef.current) removeLoadingDots(editor);
+        loadingDotsRef.current = generateLoadingDots(editor, 'Repairing query');
+      }
       // iterate over all queries that may have an error
       if (parseErrorsByStmt) {
         for (let key in parseErrorsByStmt) {
           let value = parseErrorsByStmt[key];
           if (value) {
+            // Abort previous request
+            const signal = abortIfNecessaryAndReturnSignal();
             // trigger the repair call
             dispatch({
               action: ActionType.Repair,
@@ -169,6 +189,7 @@ export default function IasqlEditor() {
                 connString,
                 tabIdx: editorSelectedTab,
                 dialect,
+                signal,
               },
             });
           }
@@ -181,7 +202,7 @@ export default function IasqlEditor() {
       }
     }
     e.stopPropagation();
-  };
+  }, []);
 
   useEffect(() => {
     const command = {
@@ -269,10 +290,19 @@ export default function IasqlEditor() {
       // Interval to show loading dots
       if (editor && loadingDotsRef.current) removeLoadingDots(editor);
       if (editor) loadingDotsRef.current = generateLoadingDots(editor, 'Getting Suggestions');
+      // Abort previous request
+      const signal = abortIfNecessaryAndReturnSignal();
       // Dispatch suggestion
       dispatch({
         action: ActionType.GetSuggestions,
-        data: { query: contextText, connString, tabIdx: editorSelectedTab, schema, dialect },
+        data: {
+          query: contextText,
+          connString,
+          tabIdx: editorSelectedTab,
+          schema,
+          dialect,
+          signal: signal,
+        },
       });
     }
   };
@@ -293,13 +323,21 @@ export default function IasqlEditor() {
     return finalText;
   };
 
+  // TODO: WHY IS NOT WORKING FOR THE DIFFERENT CASES?
   // Generate loading dots while getting suggestions
   const generateLoadingDots = (editor: any, message: string) => {
-    return setInterval(() => {
+    console.log('executing internal with message: ', message);
+
+    const int = setInterval(() => {
       editor.ghostText =
-        editor.ghostText && editor.ghostText.length < 3 ? editor.ghostText + '.' : `${message}.`;
+        editor.ghostText && (editor.ghostText as string).replace(message, '').length < 3
+          ? editor.ghostText + '.'
+          : `${message}.`;
+      console.log(editor.ghostText);
       editor.setGhostText(`  ${editor.ghostText}`, editor.getCursorPosition());
     }, 500);
+    console.log(`int: ${int}`);
+    return int;
   };
 
   // Remove loading dots when suggestions are received
