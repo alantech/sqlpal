@@ -41,7 +41,7 @@ services:
     volumes:
       - ./sqlpal-server/fixtures/test_schema_mysql.sql:/docker-entrypoint-initdb.d/init.sql
   mssql:
-    # mssql://sqlpaluser:sqlpass@local_mssql:1433/sqlpal
+    # mssql://sqlpaluser:sqlpass@local_mssql:1433/sqlpal?TrustServerCertificate=yes
     container_name: sqlpal_db_mssql
     hostname: local_mssql
     image: mcr.microsoft.com/mssql/server:2019-latest
