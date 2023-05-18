@@ -36,7 +36,7 @@ async function validate(req: NextApiRequest, res: NextApiResponse) {
       const normalizedSchema: Schema = normalizeSchema(body.schema);
       validationErr = validateParsedSql(parsedSql, normalizedSchema);
       console.log(`validation error: ${validationErr}`);
-    } else if (content && (content as string).startsWith('--')) {
+    } else if (body.content && (body.content as string).startsWith('--')) {
       validationErr = '';
     } else {
       validationErr = 'Invalid query';
