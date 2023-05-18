@@ -123,7 +123,8 @@ const getRecordCountByTableQuery = (dialect: string, tableSchema: string) => {
           TABLE_NAME AS table_name,
           SUM(TABLE_ROWS) as record_count
         FROM INFORMATION_SCHEMA.TABLES
-        WHERE table_schema = '${tableSchema}' AND table_name != 'index_content';
+        WHERE table_schema = '${tableSchema}' AND table_name != 'index_content'
+        GROUP BY TABLE_NAME;
       `;
     case 'TSQL':
       return `

@@ -12,14 +12,60 @@ services:
     tmpfs:
       - /tmp/indexes
     container_name: sqlpal
-  db:
-    container_name: test_db
-    hostname: localdb
+  pg:
+    # postgresql://sqlpaluser:sqlpass@local_pg:5432/sqlpal
+    container_name: sqlpal_db_pg
+    hostname: local_pg
     image: postgres:latest
     ports:
       - "5432:5432"
     environment:
+      POSTGRES_USER: sqlpaluser
       POSTGRES_PASSWORD: sqlpass
       POSTGRES_DB: sqlpal
     volumes:
-      - ./sqlpal-server/fixtures/test_schema.sql:/docker-entrypoint-initdb.d/init.sql    
+      - ./sqlpal-server/fixtures/test_schema_pg.sql:/docker-entrypoint-initdb.d/init.sql
+  mysql:
+    # mysql://sqlpaluser:sqlpass@local_mysql:3306/sqlpal
+    container_name: sqlpal_db_mysql
+    hostname: local_mysql
+    image: mysql:latest
+    command: ['mysqld', '--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci', '--default-authentication-plugin=mysql_native_password']
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+      MYSQL_USER: "sqlpaluser"
+      MYSQL_PASSWORD: "sqlpass"
+      MYSQL_DATABASE: "sqlpal"
+    volumes:
+      - ./sqlpal-server/fixtures/test_schema_mysql.sql:/docker-entrypoint-initdb.d/init.sql
+  mssql:
+    # mssql://sqlpaluser:sqlpass@local_mssql:1433/sqlpal?TrustServerCertificate=yes
+    container_name: sqlpal_db_mssql
+    hostname: local_mssql
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    ports:
+      - "1433:1433"
+    environment:
+      ACCEPT_EULA: Y
+      MSSQL_SA_PASSWORD: strongPassword123
+      MSSQL_PID: Express
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P strongPassword123 -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      retries: 10
+      start_period: 10s
+      timeout: 3s
+  mssql.configurator:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    depends_on:
+      mssql:
+        condition: service_healthy
+    command: >
+      bash -c '
+      /opt/mssql-tools/bin/sqlcmd -S mssql -U sa -P strongPassword123 -d master -i docker-entrypoint-initdb.d/init.sql;
+      echo "All done!";
+      '
+    volumes:
+      - ./sqlpal-server/fixtures/test_schema_mssql.sql:/docker-entrypoint-initdb.d/init.sql
