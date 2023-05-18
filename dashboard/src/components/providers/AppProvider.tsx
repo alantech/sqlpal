@@ -90,8 +90,6 @@ const generateInitialQuery = (dialect: SQLDialects, dbId?: string) => {
     MYSQL: dbId ?? 'mysql',
     TSQL: 'dbo',
   };
-  console.log('dialect', dialect);
-  console.log('tableSchemaBasedOnDialect', tableSchemaBasedOnDialect[dialect]);
   const columnInfoByTableQuery = getColumnInfoByTableQuery(tableSchemaBasedOnDialect[dialect]);
   const recordCountByTableQuery = getRecordCountByTableQuery(dialect, tableSchemaBasedOnDialect[dialect]);
   return `${columnInfoByTableQuery}; ${recordCountByTableQuery}`;
