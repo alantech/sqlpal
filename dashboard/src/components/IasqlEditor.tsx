@@ -2,7 +2,6 @@ import { forwardRef, useCallback, useEffect, useRef } from 'react';
 import React from 'react';
 import ReactAce, { IAceEditorProps } from 'react-ace/lib/ace';
 
-import debounce from 'lodash/debounce';
 import dynamic from 'next/dynamic';
 
 import useLocalStorage from '@/hooks/useLocalStorage';
@@ -146,17 +145,12 @@ export default function IasqlEditor() {
   // detect clicks on the editor
   const handleEditorClick = (e: MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.className.includes('ace_error') && target.className.includes('ace_gutter-cell')) {
+    if (target?.className?.includes('ace_error') && target?.className?.includes('ace_gutter-cell')) {
       clearSuggestions();
       // Interval to show loading dots
       const editor = editorRef?.current?.editor;
-      if (editor) {
-        const position = editor.getCursorPosition();
-        position.column = editor.session.getLine(position.row).length;
-        editor.moveCursorTo(position.row, position.column);
-        editor.ghostText = '...Repairing...';
-        editor.setGhostText('...Repairing...', editor.getCursorPosition());
-      }
+      if (editor) removeLoadingDots(editor);
+      if (editor) loadingDotsRef.current = generateLoadingDots(editor, 'Repairing query');
       // iterate over all queries that may have an error
       if (parseErrorsByStmt) {
         for (let key in parseErrorsByStmt) {
@@ -196,19 +190,21 @@ export default function IasqlEditor() {
   // Set up editor on change handler
   const handleEditorContentUpdate = useCallback(
     (content: string) => {
-      handleEditorContentValidation();
       dispatch({ action: ActionType.EditContent, data: { content } });
     },
     [dispatch],
   );
 
   // Validate editor content on change
-  const handleEditorContentValidation = debounce(() => {
-    dispatch({
-      action: ActionType.ValidateContent,
-      data: { content: editorRef?.current?.editor.getValue(), schema },
-    });
-  }, 500);
+  useEffect(() => {
+    const debounceValidation = setTimeout(() => {
+      dispatch({
+        action: ActionType.ValidateContent,
+        data: { content: editorRef?.current?.editor.getValue(), schema },
+      });
+    }, 1000);
+    return () => clearTimeout(debounceValidation);
+  }, [editorTabs[editorSelectedTab].content]);
 
   // Set up editor completers
   useEffect(() => {
@@ -248,20 +244,12 @@ export default function IasqlEditor() {
 
   // Listen for editor changes to trigger suggestions if enabled
   useEffect(() => {
-    editorRef?.current?.editor?.commands.on('afterExec', eventData => {
-      handleAfterExec(eventData);
-    });
-  }, [editorRef?.current]);
-
-  const handleAfterExec = debounce((eventData: any) => {
-    if (eventData.command.name === 'insertstring') {
-      // check if latest characters typed have been space, tab, or enter
-      const lastChar = eventData.args;
-      if (lastChar === '\t' || lastChar === '\n') return;
+    const debounceSuggestions = setTimeout(() => {
       if (!editorRef?.current?.editor?.autoSuggestEnabled) return;
       maybeDispatchSuggestion();
-    }
-  }, 500);
+    }, 1000);
+    return () => clearTimeout(debounceSuggestions);
+  }, [editorTabs[editorSelectedTab].content]);
 
   // Calculate context for auto complete and dispatch event to get suggestions if needed
   const maybeDispatchSuggestion = () => {
@@ -270,7 +258,7 @@ export default function IasqlEditor() {
     if (contextText && contextText.length > 3) {
       // Interval to show loading dots
       if (editor && loadingDotsRef.current) removeLoadingDots(editor);
-      if (editor) loadingDotsRef.current = generateLoadingDots(editor);
+      if (editor) loadingDotsRef.current = generateLoadingDots(editor, 'Getting Suggestions');
       // Dispatch suggestion
       dispatch({
         action: ActionType.GetSuggestions,
@@ -296,9 +284,10 @@ export default function IasqlEditor() {
   };
 
   // Generate loading dots while getting suggestions
-  const generateLoadingDots = (editor: any) => {
+  const generateLoadingDots = (editor: any, message: string) => {
     return setInterval(() => {
-      editor.ghostText = editor.ghostText && editor.ghostText.length < 3 ? editor.ghostText + '.' : '.';
+      editor.ghostText =
+        editor.ghostText && editor.ghostText.length < 3 ? editor.ghostText + '.' : `${message}.`;
       editor.setGhostText(`  ${editor.ghostText}`, editor.getCursorPosition());
     }, 500);
   };
