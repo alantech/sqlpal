@@ -18,7 +18,7 @@ interface ValidateRequest {
 const functionRegex = /^\s*\w+\s*\(/;
 const argumentRegex = /^\s*(\w+)\s*\((.*)\)/g;
 
-async function validate(req: NextApiRequest, res: NextApiResponse) {
+async function validate(req: NextApiRequest, res: NextApiResponse<{ message: string } | {}>) {
   console.log('Handling request', {
     app: 'parse',
     meta: req.body,
@@ -36,8 +36,10 @@ async function validate(req: NextApiRequest, res: NextApiResponse) {
       const normalizedSchema: Schema = normalizeSchema(body.schema);
       validationErr = validateParsedSql(parsedSql, normalizedSchema);
       console.log(`validation error: ${validationErr}`);
+    } else if (body.content && (body.content as string).startsWith('--')) {
+      validationErr = '';
     } else {
-      return res.status(400).json({ message: 'Invalid query' });
+      validationErr = 'Invalid query';
     }
   } catch (e: any) {
     return res.status(400).json({ message: e?.message ?? 'Unknown error' });

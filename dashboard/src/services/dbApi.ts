@@ -1,4 +1,4 @@
-async function maybeHandleFetchError(response: any) {
+async function maybeHandleFetchError(response: Response): Promise<void> {
   // TODO: What type here?
   if (!response.ok) {
     let message;
@@ -17,24 +17,38 @@ async function maybeHandleFetchError(response: any) {
   }
 }
 
-async function redirectIfUnauthorized(response: any) {
+async function redirectIfUnauthorized(response: Response): Promise<void> {
   if (response.status === 403) {
     const obj = await response.json();
     if (obj.paymentLink) window.location.href = obj.paymentLink;
   }
 }
 
-async function post(backendUrl: string, endpoint: string, body: any, raw = false) {
-  const resp = await fetch(`${backendUrl}/${endpoint}`, {
-    method: 'POST',
-    body: raw ? body : JSON.stringify(body),
-    headers: {
-      'Content-Type': raw ? 'text/plain' : 'application/json',
-    },
-  });
-  await redirectIfUnauthorized(resp);
-  await maybeHandleFetchError(resp);
-  return resp;
+async function post(
+  backendUrl: string,
+  endpoint: string,
+  body: any,
+  raw = false,
+  signal?: AbortSignal,
+): Promise<Response> {
+  try {
+    const resp = await fetch(`${backendUrl}/${endpoint}`, {
+      method: 'POST',
+      signal,
+      body: raw ? body : JSON.stringify(body),
+      headers: {
+        'Content-Type': raw ? 'text/plain' : 'application/json',
+      },
+    });
+    await redirectIfUnauthorized(resp);
+    await maybeHandleFetchError(resp);
+    return resp;
+  } catch (e: any) {
+    if (e.name === 'AbortError') {
+      // request was aborted
+    }
+    throw e;
+  }
 }
 
 export async function run(backendUrl: string, connString: string, sql: string, dialect: string) {
@@ -42,8 +56,20 @@ export async function run(backendUrl: string, connString: string, sql: string, d
   return resp.json();
 }
 
-export async function autocomplete(backendUrl: string, connString: string, sql: string, dialect: string) {
-  const resp = await post(backendUrl, 'autocomplete', { query: sql, conn_str: connString, dialect });
+export async function autocomplete(
+  backendUrl: string,
+  connString: string,
+  sql: string,
+  dialect: string,
+  signal: AbortSignal,
+) {
+  const resp = await post(
+    backendUrl,
+    'autocomplete',
+    { query: sql, conn_str: connString, dialect },
+    false,
+    signal,
+  );
   return resp.json();
 }
 
@@ -58,13 +84,20 @@ export async function repair(
   query: string,
   error: string,
   dialect: string,
+  signal?: AbortSignal,
 ) {
-  const resp = await post(backendUrl, 'repair', {
-    conn_str: connString,
-    query: query,
-    error_message: error,
-    dialect,
-  });
+  const resp = await post(
+    backendUrl,
+    'repair',
+    {
+      conn_str: connString,
+      query: query,
+      error_message: error,
+      dialect,
+    },
+    false,
+    signal,
+  );
   return resp.json();
 }
 

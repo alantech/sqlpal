@@ -1,14 +1,13 @@
-import { forwardRef, useCallback, useEffect, useRef } from 'react';
+import { MouseEvent, forwardRef, useCallback, useEffect, useRef } from 'react';
 import React from 'react';
 import ReactAce, { IAceEditorProps } from 'react-ace/lib/ace';
 
-import debounce from 'lodash/debounce';
 import dynamic from 'next/dynamic';
 
 import useLocalStorage from '@/hooks/useLocalStorage';
 
 import QuerySidebar from './QuerySidebar/QuerySidebar';
-import { HBox, align, VBox, Tab } from './common';
+import { HBox, align, VBox, Tab, Spinner } from './common';
 import { ActionType, useAppContext } from './providers/AppProvider';
 
 const AceEdit = dynamic(
@@ -48,6 +47,7 @@ export default function IasqlEditor() {
   const editorRef = useRef(null as null | ReactAce);
   const prevTabsLenRef = useRef(null as null | number);
   const loadingDotsRef = useRef(null as null | NodeJS.Timeout);
+  const suggestionsAbortControllerRef = useRef(null as null | AbortController);
 
   // Custom hooks
   const tabToAcceptLS = localStorage.getItem('tabToAccept');
@@ -146,25 +146,37 @@ export default function IasqlEditor() {
     [dispatch, token],
   );
 
+  // Abort previous request
+  const abortIfNecessaryAndReturnSignal = () => {
+    if (suggestionsAbortControllerRef.current) {
+      suggestionsAbortControllerRef.current.abort();
+    }
+    suggestionsAbortControllerRef.current = new AbortController();
+    return suggestionsAbortControllerRef.current.signal;
+  };
+
   // detect clicks on the editor
   const handleEditorClick = (e: MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.className.includes('ace_error') && target.className.includes('ace_gutter-cell')) {
-      clearSuggestions();
+    if (target?.className?.includes('ace_error') && target?.className?.includes('ace_gutter-cell')) {
       // Interval to show loading dots
       const editor = editorRef?.current?.editor;
       if (editor) {
+        clearSuggestions();
         const position = editor.getCursorPosition();
         position.column = editor.session.getLine(position.row).length;
         editor.moveCursorTo(position.row, position.column);
-        editor.ghostText = '...Repairing...';
-        editor.setGhostText('...Repairing...', editor.getCursorPosition());
+        // TODO: make this work with the general loading dots fn
+        editor.ghostText = 'Repairing...';
+        editor.setGhostText(' Repairing...', editor.getCursorPosition());
       }
       // iterate over all queries that may have an error
       if (parseErrorsByStmt) {
         for (let key in parseErrorsByStmt) {
           let value = parseErrorsByStmt[key];
           if (value) {
+            // Abort previous request
+            const signal = abortIfNecessaryAndReturnSignal();
             // trigger the repair call
             dispatch({
               action: ActionType.Repair,
@@ -175,6 +187,7 @@ export default function IasqlEditor() {
                 connString,
                 tabIdx: editorSelectedTab,
                 dialect,
+                signal,
               },
             });
           }
@@ -206,19 +219,21 @@ export default function IasqlEditor() {
   // Set up editor on change handler
   const handleEditorContentUpdate = useCallback(
     (content: string) => {
-      handleEditorContentValidation();
       dispatch({ action: ActionType.EditContent, data: { content } });
     },
     [dispatch],
   );
 
   // Validate editor content on change
-  const handleEditorContentValidation = debounce(() => {
-    dispatch({
-      action: ActionType.ValidateContent,
-      data: { content: editorRef?.current?.editor.getValue(), schema, dialect },
-    });
-  }, 500);
+  useEffect(() => {
+    const debounceValidation = setTimeout(() => {
+      dispatch({
+        action: ActionType.ValidateContent,
+        data: { content: editorRef?.current?.editor.getValue(), schema, dialect },
+      });
+    }, 1000);
+    return () => clearTimeout(debounceValidation);
+  }, [editorTabs[editorSelectedTab].content]);
 
   // Set up editor completers
   useEffect(() => {
@@ -258,33 +273,40 @@ export default function IasqlEditor() {
 
   // Listen for editor changes to trigger suggestions if enabled
   useEffect(() => {
-    editorRef?.current?.editor?.commands.on('afterExec', eventData => {
-      handleAfterExec(eventData);
-    });
-  }, [editorRef?.current]);
-
-  const handleAfterExec = debounce((eventData: any) => {
-    if (eventData.command.name === 'insertstring') {
-      // check if latest characters typed have been space, tab, or enter
-      const lastChar = eventData.args;
-      if (lastChar === '\t' || lastChar === '\n') return;
+    const debounceSuggestions = setTimeout(() => {
       if (!editorRef?.current?.editor?.autoSuggestEnabled) return;
       maybeDispatchSuggestion();
-    }
-  }, 500);
+    }, 1000);
+    return () => clearTimeout(debounceSuggestions);
+  }, [editorTabs[editorSelectedTab].content]);
 
   // Calculate context for auto complete and dispatch event to get suggestions if needed
   const maybeDispatchSuggestion = () => {
     const editor = editorRef?.current?.editor;
     const contextText = getContextForAutoComplete();
     if (contextText && contextText.length > 3) {
-      // Interval to show loading dots
-      if (editor && loadingDotsRef.current) removeLoadingDots(editor);
-      if (editor) loadingDotsRef.current = generateLoadingDots(editor);
+      if (editor) {
+        // Move cursor to end of line
+        const position = editor.getCursorPosition();
+        position.column = editor.session.getLine(position.row).length;
+        editor.moveCursorTo(position.row, position.column);
+        // Interval to show loading dots
+        if (loadingDotsRef.current) removeLoadingDots(editor);
+        loadingDotsRef.current = generateLoadingDots(editor, 'Getting Suggestions');
+      }
+      // Abort previous request
+      const signal = abortIfNecessaryAndReturnSignal();
       // Dispatch suggestion
       dispatch({
         action: ActionType.GetSuggestions,
-        data: { query: contextText, connString, tabIdx: editorSelectedTab, schema, dialect },
+        data: {
+          query: contextText,
+          connString,
+          tabIdx: editorSelectedTab,
+          schema,
+          dialect,
+          signal: signal,
+        },
       });
     }
   };
@@ -306,9 +328,12 @@ export default function IasqlEditor() {
   };
 
   // Generate loading dots while getting suggestions
-  const generateLoadingDots = (editor: any) => {
+  const generateLoadingDots = (editor: any, message: string) => {
     return setInterval(() => {
-      editor.ghostText = editor.ghostText && editor.ghostText.length < 3 ? editor.ghostText + '.' : '.';
+      editor.ghostText =
+        editor.ghostText && (editor.ghostText as string).replace(message, '').length < 3
+          ? editor.ghostText + '.'
+          : `${message}.`;
       editor.setGhostText(`  ${editor.ghostText}`, editor.getCursorPosition());
     }, 500);
   };
@@ -336,6 +361,8 @@ export default function IasqlEditor() {
         removeLoadingDots(editor);
         editor.ghostText = suggestionValue;
         editor.setGhostText(`  ${suggestionValue}`, currentPos);
+        // Close autocomplete popup if open
+        if (editor.completer?.popup?.isOpen) editor.completer?.detach();
       }
       if (editor && !shouldShow && loadingDotsRef.current) {
         removeLoadingDots(editor);
@@ -479,7 +506,7 @@ export default function IasqlEditor() {
   return (
     <VBox customClasses='mb-3'>
       <HBox alignment={align.between}>
-        <QuerySidebar />
+        {!Object.keys(schema ?? {}).length ? <Spinner /> : <QuerySidebar />}
         <VBox id='tabs-and-editor' customClasses='w-full' height='h-50vh' onClick={handleEditorClick}>
           <Tab
             tabs={editorTabs}

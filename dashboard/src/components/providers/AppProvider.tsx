@@ -431,11 +431,11 @@ const middlewareReducer = async (
       break;
     }
     case ActionType.GetSuggestions: {
-      const { connString, query, tabIdx, schema, dialect } = payload.data;
+      const { connString, query, tabIdx, schema, dialect, signal } = payload.data;
       if (!connString) break;
       let suggestions: any[] = [];
       try {
-        const autocompleteRes = await DbActions.autocomplete(serverUrl, connString, query, dialect);
+        const autocompleteRes = await DbActions.autocomplete(serverUrl, connString, query, dialect, signal);
         if (autocompleteRes['suggestions'] && Array.isArray(autocompleteRes['suggestions'])) {
           // validate the suggestions and return the first valid one
           for (const suggestion of autocompleteRes['suggestions']) {
@@ -459,11 +459,11 @@ const middlewareReducer = async (
       break;
     }
     case ActionType.Repair: {
-      const { connString, query, error, tabIdx, schema, dialect } = payload.data;
+      const { connString, query, error, tabIdx, schema, dialect, signal } = payload.data;
       if (!connString) break;
       let suggestions: any[] = [];
       try {
-        const repairRes = await DbActions.repair(serverUrl, connString, query, error, dialect);
+        const repairRes = await DbActions.repair(serverUrl, connString, query, error, dialect, signal);
         if (repairRes['suggestions'] && Array.isArray(repairRes['suggestions'])) {
           // validate the suggestions and return the first valid one
           for (const suggestion of repairRes['suggestions']) {
