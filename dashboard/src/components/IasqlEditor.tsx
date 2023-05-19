@@ -328,7 +328,6 @@ export default function IasqlEditor() {
         editor.ghostText && (editor.ghostText as string).replace(message, '').length < 3
           ? editor.ghostText + '.'
           : `${message}.`;
-      console.log(editor.ghostText);
       editor.setGhostText(`  ${editor.ghostText}`, editor.getCursorPosition());
     }, 500);
   };
