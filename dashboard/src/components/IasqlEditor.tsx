@@ -156,7 +156,7 @@ export default function IasqlEditor() {
   };
 
   // detect clicks on the editor
-  const handleEditorClick = useCallback((e: MouseEvent) => {
+  const handleEditorClick = (e: MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target?.className?.includes('ace_error') && target?.className?.includes('ace_gutter-cell')) {
       // Interval to show loading dots
@@ -164,13 +164,11 @@ export default function IasqlEditor() {
       if (editor) {
         clearSuggestions();
         const position = editor.getCursorPosition();
-        console.log('position', position);
-        const lastCol = editor.session.getLine(position.row).length;
-        console.log(`lastCol: ${lastCol}`);
-        editor.moveCursorTo(position.row, lastCol);
-        editor?.selection?.clearSelection();
-        if (loadingDotsRef.current) removeLoadingDots(editor);
-        loadingDotsRef.current = generateLoadingDots(editor, 'Repairing query');
+        position.column = editor.session.getLine(position.row).length;
+        editor.moveCursorTo(position.row, position.column);
+        // TODO: make this work with the general loading dots fn
+        editor.ghostText = 'Repairing...';
+        editor.setGhostText(' Repairing...', editor.getCursorPosition());
       }
       // iterate over all queries that may have an error
       if (parseErrorsByStmt) {
@@ -202,7 +200,7 @@ export default function IasqlEditor() {
       }
     }
     e.stopPropagation();
-  }, []);
+  };
 
   useEffect(() => {
     const command = {
@@ -323,12 +321,9 @@ export default function IasqlEditor() {
     return finalText;
   };
 
-  // TODO: WHY IS NOT WORKING FOR THE DIFFERENT CASES?
   // Generate loading dots while getting suggestions
   const generateLoadingDots = (editor: any, message: string) => {
-    console.log('executing internal with message: ', message);
-
-    const int = setInterval(() => {
+    return setInterval(() => {
       editor.ghostText =
         editor.ghostText && (editor.ghostText as string).replace(message, '').length < 3
           ? editor.ghostText + '.'
@@ -336,8 +331,6 @@ export default function IasqlEditor() {
       console.log(editor.ghostText);
       editor.setGhostText(`  ${editor.ghostText}`, editor.getCursorPosition());
     }, 500);
-    console.log(`int: ${int}`);
-    return int;
   };
 
   // Remove loading dots when suggestions are received

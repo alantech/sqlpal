@@ -92,8 +92,6 @@ export async function repair(
     false,
     signal,
   );
-  // TODO: Remove this before merge
-  await new Promise(resolve => setTimeout(resolve, 60000));
   return resp.json();
 }
 
