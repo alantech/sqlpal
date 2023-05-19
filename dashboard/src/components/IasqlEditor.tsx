@@ -285,9 +285,15 @@ export default function IasqlEditor() {
     const editor = editorRef?.current?.editor;
     const contextText = getContextForAutoComplete();
     if (contextText && contextText.length > 3) {
-      // Interval to show loading dots
-      if (editor && loadingDotsRef.current) removeLoadingDots(editor);
-      if (editor) loadingDotsRef.current = generateLoadingDots(editor, 'Getting Suggestions');
+      if (editor) {
+        // Move cursor to end of line
+        const position = editor.getCursorPosition();
+        position.column = editor.session.getLine(position.row).length;
+        editor.moveCursorTo(position.row, position.column);
+        // Interval to show loading dots
+        if (loadingDotsRef.current) removeLoadingDots(editor);
+        loadingDotsRef.current = generateLoadingDots(editor, 'Getting Suggestions');
+      }
       // Abort previous request
       const signal = abortIfNecessaryAndReturnSignal();
       // Dispatch suggestion
