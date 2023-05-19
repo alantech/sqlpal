@@ -361,6 +361,8 @@ export default function IasqlEditor() {
         removeLoadingDots(editor);
         editor.ghostText = suggestionValue;
         editor.setGhostText(`  ${suggestionValue}`, currentPos);
+        // Close autocomplete popup if open
+        if (editor.completer?.popup?.isOpen) editor.completer?.detach();
       }
       if (editor && !shouldShow && loadingDotsRef.current) {
         removeLoadingDots(editor);
