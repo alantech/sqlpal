@@ -7,7 +7,7 @@ import dynamic from 'next/dynamic';
 import useLocalStorage from '@/hooks/useLocalStorage';
 
 import QuerySidebar from './QuerySidebar/QuerySidebar';
-import { HBox, align, VBox, Tab } from './common';
+import { HBox, align, VBox, Tab, Spinner } from './common';
 import { ActionType, useAppContext } from './providers/AppProvider';
 
 const AceEdit = dynamic(
@@ -506,7 +506,7 @@ export default function IasqlEditor() {
   return (
     <VBox customClasses='mb-3'>
       <HBox alignment={align.between}>
-        <QuerySidebar />
+        {!Object.keys(schema ?? {}).length ? <Spinner /> : <QuerySidebar />}
         <VBox id='tabs-and-editor' customClasses='w-full' height='h-50vh' onClick={handleEditorClick}>
           <Tab
             tabs={editorTabs}
