@@ -9,8 +9,8 @@ from .utils.embeddings import select_embeddings
 from .utils.autocomplete import autocomplete_query_suggestions, generate_queries_for_schema
 from .utils.indexes import select_index
 from .utils.repair import repair_query_suggestions
-
 from .utils import connect_to_db, explain_query, get_schema_dict
+from threading import Thread
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,6 +25,7 @@ load_dotenv()
 openai.api_key = os.environ.get('OPENAI_API_KEY')
 TOTAL_AUTOCOMPLETE_TIME = os.environ.get('TOTAL_AUTOCOMPLETE_TIME', 3)
 TOTAL_REPAIR_TIME = os.environ.get('TOTAL_REPAIR_TIME', 10)
+
 
 @api_bp.route('/discover', methods=['OPTIONS', 'POST'])
 @cross_origin(origin='http://localhost:9876', supports_credentials=True)
@@ -53,9 +54,7 @@ def discover():
         metadatas.append({'type': 'schema'})
 
         if os.environ.get('GET_SAMPLE_QUERIES', False):
-            queries = generate_queries_for_schema(info, schema_dict, db.dialect)
-            if (queries and len(queries) > 0):
-                table_queries[table] = queries
+            table_queries[table] = info
 
     # add to a vector search using embeddings
     docsearch = index_engine.read_index_contents(texts, embeddings, metadatas)
@@ -63,13 +62,25 @@ def discover():
 
     # add sample queries
     if os.environ.get('GET_SAMPLE_QUERIES', False):
-        for table, queries in table_queries.items():
-            for query in queries:
-                docsearch.add_texts([query], [{'type': 'query'}])
+        # run the generate_and_save_sample_queries in a new thread to not block the code execution
+        thread = Thread(target=generate_and_save_sample_queries,
+                        args=(table_queries, db, schema_dict, docsearch))
+        thread.start()
+
     index_engine.write_index(db, docsearch)
 
     response = jsonify({"status": 'OK'})
     return response
+
+
+def generate_and_save_sample_queries(table_queries, db, schema_dict, docsearch):
+    logger.info('Started generating sample queries')
+    for info in table_queries.values():
+        queries = generate_queries_for_schema(info, schema_dict, db.dialect)
+        if (queries and len(queries) > 0):
+            for query in queries:
+                docsearch.add_texts([query], [{'type': 'query'}])
+    logger.info('Finished generating sample queries')
 
 
 @api_bp.route('/autocomplete', methods=['OPTIONS', 'POST'])
@@ -96,7 +107,7 @@ def autocomplete():
             et = time.time()
             elapsed_time = (et - st)*1000
             allowed_timeout = TOTAL_AUTOCOMPLETE_TIME*1000 - elapsed_time
-            if allowed_timeout>0 and len(result)>0:
+            if allowed_timeout > 0 and len(result) > 0:
                 # we can trigger the SQL explain, for just the total remainder time
                 valid = explain_query(db, result[0], allowed_timeout)
                 if not valid:
@@ -136,13 +147,13 @@ def repair():
             et = time.time()
             elapsed_time = (et - st)*1000
             allowed_timeout = TOTAL_AUTOCOMPLETE_TIME*1000 - elapsed_time
-            if allowed_timeout>0 and len(result)>0:
+            if allowed_timeout > 0 and len(result) > 0:
                 # we can trigger the SQL explain, for just the total remainder time
                 valid = explain_query(db, result[0], allowed_timeout)
                 if not valid:
                     # just return a blank query
                     response = jsonify({'suggestions': []})
-                    return response            
+                    return response
             response = jsonify({'suggestions': result})
             return response
         else:
