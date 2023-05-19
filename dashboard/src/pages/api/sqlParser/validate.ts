@@ -18,7 +18,7 @@ interface ValidateRequest {
 const functionRegex = /^\s*\w+\s*\(/;
 const argumentRegex = /^\s*(\w+)\s*\((.*)\)/g;
 
-async function validate(req: NextApiRequest, res: NextApiResponse) {
+async function validate(req: NextApiRequest, res: NextApiResponse<{ message: string } | {}>) {
   console.log('Handling request', {
     app: 'parse',
     meta: req.body,

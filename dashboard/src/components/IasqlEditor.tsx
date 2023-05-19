@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useRef } from 'react';
+import { MouseEvent, forwardRef, useCallback, useEffect, useRef } from 'react';
 import React from 'react';
 import ReactAce, { IAceEditorProps } from 'react-ace/lib/ace';
 

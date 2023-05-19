@@ -1,4 +1,4 @@
-async function maybeHandleFetchError(response: any) {
+async function maybeHandleFetchError(response: Response): Promise<void> {
   // TODO: What type here?
   if (!response.ok) {
     let message;
@@ -17,14 +17,20 @@ async function maybeHandleFetchError(response: any) {
   }
 }
 
-async function redirectIfUnauthorized(response: any) {
+async function redirectIfUnauthorized(response: Response): Promise<void> {
   if (response.status === 403) {
     const obj = await response.json();
     if (obj.paymentLink) window.location.href = obj.paymentLink;
   }
 }
 
-async function post(backendUrl: string, endpoint: string, body: any, raw = false, signal?: AbortSignal) {
+async function post(
+  backendUrl: string,
+  endpoint: string,
+  body: any,
+  raw = false,
+  signal?: AbortSignal,
+): Promise<Response> {
   try {
     const resp = await fetch(`${backendUrl}/${endpoint}`, {
       method: 'POST',
