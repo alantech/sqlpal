@@ -9,7 +9,7 @@ const ci: ConfigInterface = {
     forceSSL: false,
   },
   server: {
-    url: 'http://localhost:8088',
+    url: 'https://api.sqlpal.ai',
   },
 };
 
