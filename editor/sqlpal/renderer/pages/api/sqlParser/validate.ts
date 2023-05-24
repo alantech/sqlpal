@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { SQLSurveyor, SQLDialect, ParsedSql, ParsedQuery } from 'sql-surveyor';
 
-type Schema = {
+export type Schema = {
   [tableName: string]: { [columnName: string]: { dataType: string; isMandatory: boolean } } & {
     recordCount: number;
   };

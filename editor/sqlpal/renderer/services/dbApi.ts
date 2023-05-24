@@ -1,3 +1,5 @@
+import { Schema } from '@/components/providers/AppProvider';
+
 async function maybeHandleFetchError(response: Response): Promise<void> {
   // TODO: What type here?
   if (!response.ok) {
@@ -73,8 +75,8 @@ export async function autocomplete(
   return resp.json();
 }
 
-export async function discoverData(backendUrl: string, connString: string, dialect: string) {
-  const resp = await post(backendUrl, 'discover', { conn_str: connString, dialect });
+export async function discoverData(backendUrl: string, connString: string, dialect: string, schema: Schema) {
+  const resp = await post(backendUrl, 'discover', { conn_str: connString, dialect, schema });
   return resp.json();
 }
 

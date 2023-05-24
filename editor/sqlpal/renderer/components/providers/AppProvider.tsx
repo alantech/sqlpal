@@ -1,7 +1,7 @@
 import React, { useCallback, useContext, useReducer } from 'react';
 
-import { ConfigInterface } from '../../config/config';
-import * as DbActions from '../../services/dbApi';
+import { ConfigInterface } from '@/config/config';
+import * as DbActions from '@/services/dbApi';
 
 import { useAppConfigContext } from './ConfigProvider';
 
@@ -44,6 +44,12 @@ interface Payload {
   data?: any;
 }
 
+export type Schema = {
+  [tableName: string]: { [columnName: string]: { dataType: string; isMandatory: boolean } } & {
+    recordCount: number;
+  };
+};
+
 interface AppState {
   token?: string;
   oldestVersion?: string;
@@ -53,11 +59,7 @@ interface AppState {
   isRunningSql: boolean;
   databases: any[];
   error: string | null;
-  schema: {
-    [tableName: string]: { [columnName: string]: { dataType: string; isMandatory: boolean } } & {
-      recordCount: number;
-    };
-  };
+  schema: Schema;
   isDarkMode: boolean;
   shouldShowDisconnect: boolean;
   shouldShowConnect: boolean;
@@ -154,7 +156,7 @@ const gettingStarted = `-- Welcome to SQLPal! Steps to get started:
 
 const validateSql = async (
   stmt: string,
-  schema: AppState['schema'],
+  schema: Schema,
   dialect: SQLDialects,
 ): Promise<string> => {
   let validationErr = '';
@@ -327,16 +329,12 @@ const middlewareReducer = async (
   switch (payload.action) {
     case ActionType.SetDBConfig: {
       const { connString, dialect } = payload.data;
+      const schema: Schema = {};
       try {
         let schemaRes: any = undefined;
         const dbId = connString.split('/')?.pop()?.split('?')?.[0] ?? '';
         const initialQuery = generateInitialQuery(dialect, dbId);
         schemaRes = await DbActions.run(backendUrl, connString, initialQuery, dialect);
-        const schema = {} as {
-          [tableName: string]: { [columnName: string]: { dataType: string; isMandatory: boolean } } & {
-            recordCount: number;
-          };
-        };
         (schemaRes?.[0]?.result ?? []).forEach((row: any) => {
           // c.table_name, c.ordinal_position, c.column_name, c.data_type
           const tableName = row.table_name;
@@ -357,7 +355,7 @@ const middlewareReducer = async (
         break;
       }
       try {
-        await DbActions.discoverData(serverUrl, connString, dialect);
+        await DbActions.discoverData(serverUrl, connString, dialect, schema);
       } catch (e) {
         console.log(`/discover failed with error: ${e}.`);
       }
