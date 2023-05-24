@@ -1,7 +1,7 @@
-import { knex } from 'knex';
+import { Knex, knex } from 'knex';
 import { NextApiRequest, NextApiResponse } from 'next';
 import { QueryResult } from 'pg';
-import { ParsedQuery, SQLDialect, SQLSurveyor,  } from 'sql-surveyor';
+import { ParsedQuery, SQLDialect, SQLSurveyor } from 'sql-surveyor';
 
 enum KnexClient {
   MYSQL = 'mysql',
@@ -65,34 +65,37 @@ function until<T>(p: Promise<T>, timeout: number): Promise<T> {
 async function runSql(sql: string, connectionString: string, dialect: keyof typeof SQLDialect) {
   const out: any = [];
   const surveyor = new SQLSurveyor(SQLDialect[dialect] ?? SQLDialect.PLpgSQL);
-  const parsedSql = surveyor.survey(sql);
-  const stmts = Object.values(parsedSql?.parsedQueries ?? {}).map((q: ParsedQuery) => q.query);
-  for (const stmt of stmts) {
-    const dbId = connectionString.split('/').pop()?.split('?')[0];
-    const username = connectionString.split('/')[2].split(':')[0];
-    const password = connectionString.split('/')[2].split(':')[1].split('@')[0];
-    const host = connectionString.split('/')[2].split(':')[1].split('@')[1];
-    const ssl = connectionString.includes('sslmode=require');
-    const client = knex({
-      client: KnexClient[dialect as keyof typeof KnexClient],
-      connection: {
-        database: dbId,
-        user: username,
-        password,
-        host,
-        ssl,
-      },
-    });
+  const client = getDbClient(connectionString, dialect);
+  if (SQLDialect[dialect] === SQLDialect.TSQL) {
     try {
-      const queryRes = await client.raw(stmt);
+      const queryRes = await client.raw(sql);
       out.push({
-        statement: stmt,
-        queryRes, 
+        statement: sql,
+        queryRes,
       });
     } catch (e) {
       throw e;
     } finally {
       await client.destroy();
+    }
+  } else {
+    const parsedSql = surveyor.survey(sql);
+    const stmts = Object.values(parsedSql?.parsedQueries ?? {}).map((q: ParsedQuery) => q.query);
+    for (const stmt of stmts) {
+      try {
+        const queryRes = await client.raw(stmt);
+        out.push({
+          statement: stmt,
+          queryRes,
+        });
+      } catch (e) {
+        throw e;
+      }
+    }
+    try {
+      await client?.destroy();
+    } catch (e) {
+      console.error(e);
     }
   }
   switch (KnexClient[dialect as keyof typeof KnexClient]) {
@@ -162,6 +165,27 @@ async function runSql(sql: string, connectionString: string, dialect: keyof type
 
 function isString(obj: unknown): obj is string {
   return typeof obj === 'string';
+}
+
+export function getDbClient(
+  connectionString: string,
+  dialect: keyof typeof SQLDialect,
+): Knex<any, unknown[]> {
+  const dbId = connectionString.split('/').pop()?.split('?')[0];
+  const username = connectionString.split('/')[2].split(':')[0];
+  const password = connectionString.split('/')[2].split(':')[1].split('@')[0];
+  const host = connectionString.split('/')[2].split(':')[1].split('@')[1];
+  const ssl = connectionString.includes('sslmode=require');
+  return knex({
+    client: KnexClient[dialect as keyof typeof KnexClient],
+    connection: {
+      database: dbId,
+      user: username,
+      password,
+      host,
+      ssl,
+    },
+  });
 }
 
 export default run;
