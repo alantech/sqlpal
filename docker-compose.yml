@@ -15,10 +15,13 @@ services:
   sqlpal-db:
     # TODO: make this persistent
     container_name: sqlpal_db
-    hostname: sqlpal-db
+    hostname: sqlpal_db
     image: postgres:latest
     ports:
-      - "5433:5432"
+      - "5433:5433"
+    expose:
+      - "5433"
+    command: -p 5433
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
