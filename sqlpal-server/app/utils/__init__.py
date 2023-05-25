@@ -17,62 +17,36 @@ def get_id_from_conn_str(conn_str):
     return hash_value[:54]  # for compatibility between indexes
 
 
-def connect_to_db(request):
+def connect_to_db(request: dict):
     Base = declarative_base()
 
-    conn_str = request.json.get('conn_str', None)
-    dialect = request.json.get('dialect', None)
-    # try to fix the postgres endpoint deprecation
-    if conn_str:
-        if conn_str.startswith("postgres://"):
-            conn_str = conn_str.replace("postgres://", "postgresql://", 1)
-        session['conn_str'] = get_id_from_conn_str(conn_str)
+    # get db credentials from env vars
+    user: str = os.environ.get('POSTGRES_USER', None)
+    password: str = os.environ.get('POSTGRES_PASSWORD', None)
+    db_name: str = os.environ.get('POSTGRES_DB', None)
+    
+    if user is None or password is None or db_name is None:
+        return None, make_response(jsonify({'error': 'No database credentials provided'}), 400)
+    
+    # connection string
+    conn_str = f'postgresql://{user}:{password}@sqlpal_db:5433/{db_name}'
 
-        # connect and create all tables
-        try:
-            # If mssql, add the driver param
-            if dialect.lower() == 'tsql':
-                conn_str_split = conn_str.split("?")
-                query_params = conn_str_split[1] if len(
-                    conn_str_split) > 1 else None
-                if query_params is not None:
-                    params = query_params.split("&")
-                    # filter out the driver param
-                    params = list(
-                        filter(lambda p: not p.startswith("driver"), params))
-                    params.append("driver=ODBC Driver 18 for SQL Server")
-                    query_params = "&".join(params)
-                else:
-                    query_params = "driver=ODBC Driver 18 for SQL Server"
-                conn_str = conn_str_split[0] + "?" + query_params
-            # todo: how to handle errors trying to connect to the db (e.g. driver errors)?
-            db = SQLDatabase.from_uri(conn_str, sample_rows_in_table_info=current_app.config.get(
-                'SAMPLE_ROWS_IN_TABLE_INFO'), indexes_in_table_info=True)
+    # save session variable to identify the connection and the index
+    # TODO: once we have authentication, we can use another identifier
+    usr_conn_str = request.json.get('conn_str', None)
+    session['conn_str'] = get_id_from_conn_str(usr_conn_str)
 
-            if os.environ.get('USE_DATABASE'):
-                Base.metadata.create_all(db._engine)
+    # connect and create all tables
+    try:
+        # todo: how to handle errors trying to connect to the db (e.g. driver errors)?
+        db = SQLDatabase.from_uri(conn_str)
+        Base.metadata.create_all(db._engine)
+        return db, None
+    except Exception as e:
+        logger.exception(e)
+        return None, make_response(jsonify({'error': 'Could not connect to database'}), 500)
 
-            return db, None
-        except Exception as e:
-            logger.exception(e)
-            return None, make_response(jsonify({'error': 'Could not connect to database'}), 500)
-    else:
-        return None, make_response(jsonify({'error': 'No connection string provided'}), 400)
-
-
-def get_schema_dict(db: SQLDatabase):
-    tables = db.get_usable_table_names()
-    schema = {}
-    for table in tables:
-        columns = [
-            col.name for tbl in db._metadata.sorted_tables for col in tbl.columns if tbl.name == table]
-        for column in columns:
-            if table not in schema:
-                schema[table] = {}
-            schema[table][column] = 1
-    return schema
-
-
+# TODO: do this in the client side
 def analyze_query(db, query):
     dialect = db.dialect
     sess = Session(bind=db._engine)
@@ -91,6 +65,7 @@ def analyze_query(db, query):
     return True
 
 
+# TODO: do this in the client side
 def explain_query(db: SQLDatabase, query, timeout):
     # perform a query explain with a given timeout
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
