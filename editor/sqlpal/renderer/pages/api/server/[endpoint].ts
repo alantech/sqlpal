@@ -11,7 +11,7 @@ interface ServerCallRequestBody {
   conn_str: string;
   query?: string;
   schema?: Schema;
-  dialect: keyof typeof SQLDialect;
+  dialect: keyof typeof SQLDialect | string;
   error_message?: string;
   tables_info?: { [tableName: string]: string };
 }
@@ -53,13 +53,16 @@ async function prepareBody(
   const bodyCopy = { ...body };
   if (endpoint && typeof endpoint === 'string' && endpoint === 'discover') {
     // Stablish db connection
-    const client = getDbClient(body.conn_str, body.dialect);
+    const client = getDbClient(body.conn_str, body.dialect as keyof typeof SQLDialect);
     // Generate table info for each table
     const tablesInfo: { [tableName: string]: string } = {};
     for (const [tableName, tableCols] of Object.entries(body.schema ?? {})) {
-      tablesInfo[tableName] = await getTableInfo(client, tableName, tableCols, body.dialect);
+      tablesInfo[tableName] = await getTableInfo(client, tableName, tableCols, body.dialect as keyof typeof SQLDialect);
     }
     bodyCopy.tables_info = tablesInfo;
+  }
+  if (!!body.dialect) {
+    bodyCopy.dialect = toServerDialect(body.dialect as keyof typeof SQLDialect);
   }
   return bodyCopy;
 }
@@ -275,4 +278,17 @@ FROM sys.indexes i WITH(NOLOCK)
 WHERE i.[object_id] = @object_id
     AND i.is_primary_key = 1), '') + CHAR(13) + ');' AS create_table
 `;
+}
+
+function toServerDialect(dialect: keyof typeof SQLDialect): string {
+  switch (dialect) {
+    case 'MYSQL':
+      return 'mysql';
+    case SQLDialect.PLSQL:
+      return 'oracle';
+    case SQLDialect.TSQL:
+      return 'mssql';
+    default:
+      return 'postgresql';
+  }
 }
