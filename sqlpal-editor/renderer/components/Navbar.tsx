@@ -17,7 +17,7 @@ export default function Navbar({ userPic }: { userPic: string }) {
   const { config } = useAppConfigContext();
   const { token, isDarkMode, dispatch } = useAppContext();
   const { logout } = useAuth0();
-  const homeUrl = 'https://sqlpal.ai';
+  const homeUrl = 'http://localhost:8888/home';
   const navigation: any[] = [
   ];
   return (
@@ -42,7 +42,7 @@ export default function Navbar({ userPic }: { userPic: string }) {
                 }
               </div>
               <div className='flex-1 flex items-center justify-center sm:items-stretch sm:justify-start'>
-                <a href={homeUrl} className='flex-shrink-0 flex items-center mr-6'>
+                <a className='flex-shrink-0 flex items-center mr-6'>
                   <img className='block lg:hidden h-8 w-auto' src='/images/logo.png' alt='Workflow' />
                   <img className='hidden lg:block h-8 w-auto' src='/images/logo.png' alt='Workflow' />
                 </a>
