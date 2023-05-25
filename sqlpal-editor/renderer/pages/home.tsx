@@ -24,7 +24,7 @@ function handleRageClicking(setIsRageClicking: (arg0: boolean) => void) {
 }
 
 export default function App() {
-  const { config, configError, telemetry, iasqlEnv } = useAppConfigContext();
+  const { config, configError, telemetry, sqlpalEnv: iasqlEnv } = useAppConfigContext();
   const [isRageClicking, setIsRageClicking] = useState(false);
 
   useEffect(() => {

@@ -10,7 +10,7 @@ export interface ConfigInterface {
     domain: string;
     audience: string;
   };
-  db: {
+  db?: {
     host: string;
     user: string; // For the server's own user
     password: string; // For the server's own user

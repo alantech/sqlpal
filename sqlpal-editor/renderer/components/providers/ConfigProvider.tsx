@@ -6,7 +6,7 @@ import { ConfigEnvironments, ConfigInterface, throwError } from '@/config/config
 interface AppConfig {
   uid?: string;
   telemetry?: 'on' | 'off';
-  iasqlEnv: ConfigEnvironments;
+  sqlpalEnv: ConfigEnvironments;
   config: ConfigInterface;
   configError?: string | null;
 }
@@ -26,10 +26,10 @@ const AppConfigProvider = ({ children }: { children: any }) => {
         const configJson = await response.json();
         if (!Object.keys(appConfig).length) {
           const initialAppConfig: AppConfig = {} as AppConfig;
-          if (!configJson.iasqlEnv) throwError('No IASQL_ENV provided');
-          initialAppConfig.iasqlEnv = configJson.iasqlEnv;
-          const envConfig = config[configJson?.iasqlEnv as ConfigEnvironments];
-          if (!envConfig) throwError('Invalid IASQL_ENV provided');
+          if (!configJson.sqlpalEnv) throwError('No SQLPAL ENV provided');
+          initialAppConfig.sqlpalEnv = configJson.sqlpalEnv;
+          const envConfig = config[configJson?.sqlpalEnv as ConfigEnvironments];
+          if (!envConfig) throwError('Invalid SQLPAL ENV provided');
           initialAppConfig.config = envConfig;
           if (!initialAppConfig.config?.auth && !configJson.uid) throwError('No UID provided');
           initialAppConfig.uid = configJson.uid;

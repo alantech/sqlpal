@@ -2,9 +2,9 @@ import { NextApiResponse } from 'next';
 
 const handler = ({} = {}, res: NextApiResponse) => {
   res.status(200).json({
-    iasqlEnv: process.env.IASQL_ENV,
-    uid: 'uid', //process.env.IASQL_UID,
-    telemetry: process.env.IASQL_TELEMETRY,
+    sqlpalEnv: process.env.NODE_ENV === 'production' ? 'prod' : 'local',
+    uid: 'uid',
+    telemetry: process.env.SQLPAL_TELEMETRY ?? 'on',
   });
 };
 

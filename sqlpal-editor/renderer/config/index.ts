@@ -1,13 +1,9 @@
-import ci from './ci';
+import prod from './prod';
 import { ConfigEnvironments, ConfigInterface } from './config';
-import debug from './debug';
 import local from './local';
-import test from './test';
 
 const config: { [key in ConfigEnvironments]: ConfigInterface } = {
-  test,
-  debug,
-  ci,
+  prod,
   local,
 };
 
