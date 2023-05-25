@@ -14,7 +14,7 @@ function classNames(...classes: any[]) {
 }
 
 export default function Navbar({ userPic }: { userPic: string }) {
-  const { config } = useAppConfigContext();
+  const { config, telemetry } = useAppConfigContext();
   const { token, isDarkMode, dispatch } = useAppContext();
   const { logout } = useAuth0();
   const homeUrl = 'http://localhost:8888/home';
@@ -117,8 +117,10 @@ export default function Navbar({ userPic }: { userPic: string }) {
                           {({ active }) => (
                             <div
                               onClick={() => {
-                                Posthog.capture(config, 'LOGOUT');
-                                Posthog.reset(config);
+                                if (telemetry !== undefined && telemetry === 'on') {
+                                  Posthog.capture(config, 'LOGOUT');
+                                  Posthog.reset(config);
+                                }
                                 logout({ returnTo: homeUrl } as any);
                               }}
                               className={classNames(

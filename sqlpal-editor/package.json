@@ -6,7 +6,7 @@
   "author": "Alejandro Guillen <alejandro@alantechnologies.com>",
   "main": "app/background.js",
   "scripts": {
-    "dev": "IASQL_ENV=local nextron",
+    "dev": "IASQL_TELEMETRY=on IASQL_ENV=local nextron",
     "build": "nextron build",
     "postinstall": "electron-builder install-app-deps"
   },
