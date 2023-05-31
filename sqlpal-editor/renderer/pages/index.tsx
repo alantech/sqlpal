@@ -24,7 +24,7 @@ function handleRageClicking(setIsRageClicking: (arg0: boolean) => void) {
 }
 
 export default function App() {
-  const { config, configError, telemetry, sqlpalEnv: iasqlEnv } = useAppConfigContext();
+  const { config, configError, telemetry, sqlpalEnv } = useAppConfigContext();
   const [isRageClicking, setIsRageClicking] = useState(false);
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function App() {
       if (config?.logdna?.key) {
         logdna.init(config.logdna.key, { app: 'dashboard' });
         logdna.addContext({
-          env: iasqlEnv,
+          env: sqlpalEnv,
         });
       }
     }
@@ -50,7 +50,6 @@ export default function App() {
     <div
       className='min-h-full dark:text-white'
       onClick={() => {
-        if (iasqlEnv === 'ci') return;
         handleRageClicking(setIsRageClicking);
       }}
     >

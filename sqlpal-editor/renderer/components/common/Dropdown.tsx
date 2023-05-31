@@ -61,6 +61,7 @@ export default function Dropdown({
           customColor={color}
           look={buttonTitleLook}
           isDisabled={isDisabled}
+          onClick={DropdownTitleButton.prototype.onClick}
         >
           <HBox alignment={align.between}>
             <span className='truncate'>{buttonTitle}</span>
