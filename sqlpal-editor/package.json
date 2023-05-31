@@ -7,7 +7,7 @@
   "main": "app/background.js",
   "scripts": {
     "dev": "SQLPAL_TELEMETRY=off nextron",
-    "build": "nextron build",
+    "build": "NODE_ENV=production nextron build",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
@@ -54,8 +54,8 @@
     "@types/node": "18.13.0",
     "@types/pg": "^8.6.6",
     "@types/pg-format": "^1.0.2",
-    "@types/react": "18.0.28",
-    "@types/react-dom": "18.0.10",
+    "@types/react": "^18.2.7",
+    "@types/react-dom": "^18.2.4",
     "@types/semver": "^7.3.13",
     "@types/tedious": "^4.0.9",
     "@types/uuid": "^9.0.0",
