@@ -69,7 +69,7 @@ export function Wizard({
               const curr = stackClone.pop();
               // If `onBack` exists and if it returns a new stack, use it, otherwise continue as is
               const newstack = onBack?.(curr ?? '###impossible###', stackClone) ?? stackClone;
-              setStack(newstack);
+              if (Array.isArray(newstack)) setStack(newstack);
             }}
             customClassName='mr-2'
           >

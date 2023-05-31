@@ -46,7 +46,7 @@ interface Payload {
 
 export type Schema = {
   [tableName: string]: { [columnName: string]: { dataType: string; isMandatory: boolean } } & {
-    recordCount: number;
+    recordCount?: number;
   };
 };
 

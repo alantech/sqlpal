@@ -48,7 +48,7 @@ export default function Schema({
 }: {
   schema: {
     [tableName: string]: { [columnName: string]: { dataType: string; isMandatory: boolean } } & {
-      recordCount: number;
+      recordCount?: number;
     };
   };
 }) {
