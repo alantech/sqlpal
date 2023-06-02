@@ -1,12 +1,15 @@
 appId: com.sqlpal.app
 productName: SQLPal
 copyright: Copyright © 2023 Alan Technologies
+asar: true
 directories:
   output: dist
   buildResources: resources
 files:
   - from: .
     filter:
-      - package.json
-      - app
+    - "package.json"
+    - "dist/**/*"
+    - "app/**/*"
+    - "renderer/**/*"
 publish: null
