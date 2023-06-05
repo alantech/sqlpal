@@ -22,6 +22,10 @@ const configuration: webpack.Configuration = {
 
   target: 'electron-main',
 
+  externals: [
+    {'knex': 'commonjs knex'}
+  ],
+
   entry: {
     main: path.join(webpackPaths.srcMainPath, 'main.ts'),
     preload: path.join(webpackPaths.srcMainPath, 'preload.ts'),
@@ -69,8 +73,10 @@ const configuration: webpack.Configuration = {
     }),
 
     new webpack.IgnorePlugin({
-      resourceRegExp: /(sqlite3|pg|pg-query-stream|oracledb|mysql2|tedious|pg-native|cloudflare:sockets)/,
+      resourceRegExp: /(sqlite3|pg-query-stream|oracledb|mysql2)/,
     }),
+
+    // new webpack.ContextReplacementPlugin(/knex\/lib\/dialects/, /postgres\/index.js/),
   ],
 
   /**

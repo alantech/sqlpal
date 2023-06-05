@@ -1,5 +1,5 @@
 import path from 'path';
-import webpack, { IgnorePlugin } from 'webpack';
+import webpack from 'webpack';
 import { merge } from 'webpack-merge';
 import { BundleAnalyzerPlugin } from 'webpack-bundle-analyzer';
 import baseConfig from './webpack.config.base';
@@ -59,11 +59,10 @@ const configuration: webpack.Configuration = {
     }),
 
     new webpack.IgnorePlugin({
-      // resourceRegExp: /(sqlite3|pg|pg-query-stream|oracledb|mysql2|tedious|pg-native|cloudflare:sockets)/,
       resourceRegExp: /(sqlite3|pg-query-stream|oracledb|mysql2)/,
     }),
 
-    new webpack.ContextReplacementPlugin(/knex\/lib\/dialects/, /postgres\/index.js/),  
+    // new webpack.ContextReplacementPlugin(/knex\/lib\/dialects/, /postgres\/index.js/),
   ],
 
   /**
