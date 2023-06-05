@@ -84,7 +84,7 @@ const createWindow = async () => {
 
   mainWindow.loadURL(resolveHtmlPath('index.html'));
 
-  mainWindow.webContents.openDevTools({ mode: 'detach' });
+  await mainWindow.webContents.openDevTools({ mode: 'detach' });
 
   mainWindow.on('ready-to-show', () => {
     if (!mainWindow) {
