@@ -21,9 +21,10 @@ const AppConfigProvider = ({ children }: { children: any }) => {
   const [appConfig, setAppConfig] = useState({} as AppConfig);
   useEffect(() => {
     const getConfig = async () => {
-      const response = await fetch(`/api/config`);
-      if (response.status === 200) {
-        const configJson = await response.json();
+      // const response = await fetch(`/api/config`);
+      // if (response.status === 200) {
+        // const configJson = await response.json();
+        const configJson = {sqlpalEnv: 'local' as ConfigEnvironments, uid: 'test', telemetry: 'off' as 'on' | 'off'};
         if (!Object.keys(appConfig).length) {
           const initialAppConfig: AppConfig = {} as AppConfig;
           if (!configJson.sqlpalEnv) throwError('No SQLPAL ENV provided');
@@ -36,7 +37,7 @@ const AppConfigProvider = ({ children }: { children: any }) => {
           initialAppConfig.telemetry = configJson.telemetry;
           setAppConfig(initialAppConfig);
         }
-      }
+      // }
     };
     getConfig().catch((e: any) => {
       setAppConfig({

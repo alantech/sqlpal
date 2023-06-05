@@ -161,12 +161,13 @@ const validateSql = async (
 ): Promise<string> => {
   let validationErr = '';
   try {
-    const sqlParseRes = await fetch(`/api/sqlParser/validate`, {
-      body: JSON.stringify({ content: stmt, schema, dialect }),
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    const sqlParseErr = await sqlParseRes.json();
+    // const sqlParseRes = await fetch(`/api/sqlParser/validate`, {
+    //   body: JSON.stringify({ content: stmt, schema, dialect }),
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    // });
+    // const sqlParseErr = await sqlParseRes.json();
+    const sqlParseErr = { message: '' };
     if (sqlParseErr.message) validationErr = sqlParseErr.message;
   } catch (e) {
     console.error(e);

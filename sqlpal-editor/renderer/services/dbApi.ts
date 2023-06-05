@@ -54,8 +54,9 @@ async function post(
 }
 
 export async function run(backendUrl: string, connString: string, sql: string, dialect: string) {
-  const resp = await post(backendUrl, '', { sql, connString, dialect });
-  return resp.json();
+  // const resp = await post(backendUrl, '', { sql, connString, dialect });
+  // return resp.json();
+  return {};
 }
 
 export async function autocomplete(
@@ -65,19 +66,22 @@ export async function autocomplete(
   dialect: string,
   signal: AbortSignal,
 ) {
-  const resp = await post(
-    backendUrl,
-    'autocomplete',
-    { query: sql, conn_str: connString, dialect },
-    false,
-    signal,
-  );
-  return resp.json();
+  // const resp = await post(
+  //   backendUrl,
+  //   'autocomplete',
+  //   { query: sql, conn_str: connString, dialect },
+  //   false,
+  //   signal,
+  // );
+  // return resp.json();
+  return {};
 }
 
 export async function discoverData(backendUrl: string, connString: string, dialect: string, schema: Schema) {
-  const resp = await post(backendUrl, 'discover', { conn_str: connString, dialect, schema });
-  return resp.json();
+  // const resp = await post(backendUrl, 'discover', { conn_str: connString, dialect, schema });
+  // return resp.json();
+  return {};
+
 }
 
 export async function repair(
@@ -88,22 +92,24 @@ export async function repair(
   dialect: string,
   signal?: AbortSignal,
 ) {
-  const resp = await post(
-    backendUrl,
-    'repair',
-    {
-      conn_str: connString,
-      query: query,
-      error_message: error,
-      dialect,
-    },
-    false,
-    signal,
-  );
-  return resp.json();
+  // const resp = await post(
+  //   backendUrl,
+  //   'repair',
+  //   {
+  //     conn_str: connString,
+  //     query: query,
+  //     error_message: error,
+  //     dialect,
+  //   },
+  //   false,
+  //   signal,
+  // );
+  // return resp.json();
+  return {}
 }
 
 export async function addStatement(backendUrl: string, connString: string, query: string, dialect: string) {
-  const resp = await post(backendUrl, 'add', { query, conn_str: connString, dialect });
-  return resp.json();
+  // const resp = await post(backendUrl, 'add', { query, conn_str: connString, dialect });
+  // return resp.json();
+  return {}
 }
