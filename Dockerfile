@@ -28,25 +28,6 @@ RUN apt install build-essential git make g++ libcurl4-openssl-dev python3-dev -y
 
 #####################################################################################################################################################
 
-# Dashboard
-FROM build AS dashboard-stage
-
-WORKDIR /dashboard
-
-## Install stage dependencies
-COPY dashboard/.yarnrc dashboard/package.json dashboard/yarn.lock ./
-RUN yarn install --frozen-lockfile
-
-## Copy files
-COPY dashboard/.eslintrc.json dashboard/next.config.js dashboard/postcss.config.js dashboard/tailwind.config.js dashboard/tsconfig.json dashboard/tslint.json ./
-COPY dashboard/public public
-COPY dashboard/src src
-
-## Build
-RUN yarn build
-
-#####################################################################################################################################################
-
 FROM build as sqlpal-stage
 
 ENV LANG=C.UTF-8
@@ -68,12 +49,6 @@ COPY sqlpal-server/app app
 
 # Main stage
 FROM base AS main-stage
-
-## Copy from dashboard-stage
-WORKDIR /dashboard
-COPY --from=dashboard-stage /dashboard/public ./public
-COPY --from=dashboard-stage /dashboard/.next/standalone ./
-COPY --from=dashboard-stage /dashboard/.next/static ./.next/static
 
 ## Copy from sqlpal-stage
 WORKDIR /sqlpal-server
@@ -98,7 +73,7 @@ ARG AUTOCOMPLETE_ENDPOINT=http://localhost:8088
 ENV AUTOCOMPLETE_ENDPOINT=
 
 ## Ports
-EXPOSE 9876
+EXPOSE 8088
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 CMD ["/usr/bin/supervisord"]
