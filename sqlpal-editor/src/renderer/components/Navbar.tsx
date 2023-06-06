@@ -18,7 +18,7 @@ export default function Navbar({ userPic }: { userPic: string }) {
   const { config, telemetry } = useAppConfigContext();
   const { token, isDarkMode, dispatch } = useAppContext();
   const { logout } = useAuth0();
-  const homeUrl = 'http://localhost:8888/';
+  const homeUrl = 'http://localhost:3000/index.html';
   const navigation: any[] = [
   ];
   return (
