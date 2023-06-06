@@ -2,7 +2,7 @@
 import { URL } from 'url';
 import path from 'path';
 import { SQLDialect } from 'sql-surveyor';
-import { Knex } from 'knex';
+import { Knex, knex } from 'knex';
 
 export enum KnexClient {
   MYSQL = 'mysql',
@@ -19,7 +19,7 @@ export function getDbClient(
   const password = connectionString.split('/')[2].split(':')[1].split('@')[0];
   const host = connectionString.split('/')[2].split(':')[1].split('@')[1];
   const ssl = connectionString.includes('sslmode=require');
-  return require('knex')({
+  return knex({
     client: KnexClient[dialect as keyof typeof KnexClient],
     connection: {
       database: dbId,
