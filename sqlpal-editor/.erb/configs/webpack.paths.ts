@@ -13,6 +13,7 @@ const appPath = path.join(releasePath, 'app');
 const appPackagePath = path.join(appPath, 'package.json');
 const appNodeModulesPath = path.join(appPath, 'node_modules');
 const srcNodeModulesPath = path.join(srcPath, 'node_modules');
+const rootNodeModulesPath = path.join(rootPath, 'node_modules');
 
 const distPath = path.join(appPath, 'dist');
 const distMainPath = path.join(distPath, 'main');
@@ -31,6 +32,7 @@ export default {
   appPackagePath,
   appNodeModulesPath,
   srcNodeModulesPath,
+  rootNodeModulesPath,
   distPath,
   distMainPath,
   distRendererPath,
