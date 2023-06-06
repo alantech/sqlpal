@@ -6,8 +6,6 @@ import { post, prepareBody, Schema } from './util';
 import validate from './validate';
 import { SQLDialect } from 'sql-surveyor';
 
-export type Channels = 'ipc-example';
-
 // Todo: handle this better
 const signalController = new Map<'autocomplete' | 'repair', AbortController>();
 
