@@ -63,8 +63,7 @@ const configuration: webpack.Configuration = {
     }),
 
     new webpack.IgnorePlugin({
-      // resourceRegExp: /^pg-native$|^cloudflare:sockets$/,
-      resourceRegExp: /(sqlite3|pg|pg-query-stream|oracledb|mysql2|tedious|pg-native|cloudflare:sockets)/,
+      resourceRegExp: /(sqlite3|pg-query-stream|oracledb|mysql2)/,
     }),
 
     new webpack.LoaderOptionsPlugin({

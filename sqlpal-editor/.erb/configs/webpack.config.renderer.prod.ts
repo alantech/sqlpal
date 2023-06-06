@@ -25,8 +25,6 @@ const configuration: webpack.Configuration = {
 
   target: ['web', 'electron-renderer'],
 
-  externals: [{ 'knex': 'commonjs knex' }],
-
   entry: [path.join(webpackPaths.srcRendererPath, 'index.tsx')],
 
   output: {

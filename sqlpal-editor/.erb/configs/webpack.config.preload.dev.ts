@@ -19,10 +19,6 @@ const configuration: webpack.Configuration = {
 
   target: 'electron-preload',
 
-  externals: [
-    {'knex': 'commonjs knex'}
-  ],
-
   entry: path.join(webpackPaths.srcMainPath, 'preload.ts'),
 
   output: {
