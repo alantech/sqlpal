@@ -24,7 +24,7 @@ const electronHandler = {
       return {
         sqlpalEnv: process.env.NODE_ENV === 'production' ? 'prod' : 'local',
         uid: 'uid',
-        telemetry: process.env.SQLPAL_TELEMETRY ?? 'on',
+        telemetry: process.env.NODE_ENV === 'production' ? 'on' : 'off',
       };
     },
   },

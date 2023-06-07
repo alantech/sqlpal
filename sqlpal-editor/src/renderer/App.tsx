@@ -31,14 +31,14 @@ function Home() {
 
   useEffect(() => {
     if (telemetry !== undefined && telemetry === 'on') {
-      Sentry.init(config);
+      // Sentry.init(config);
       Posthog.init(config);
-      if (config?.logdna?.key) {
-        logdna.init(config.logdna.key, { app: 'dashboard' });
-        logdna.addContext({
-          env: sqlpalEnv,
-        });
-      }
+      // if (config?.logdna?.key) {
+      //   logdna.init(config.logdna.key, { app: 'dashboard' });
+      //   logdna.addContext({
+      //     env: sqlpalEnv,
+      //   });
+      // }
     }
   }, [telemetry, config]);
 

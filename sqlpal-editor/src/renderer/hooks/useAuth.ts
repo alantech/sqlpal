@@ -13,7 +13,7 @@ export function useAuth() {
   useEffect(() => {
     if (!config?.auth) {
       if (uid) {
-        Sentry.identify(config, uid);
+        // Sentry.identify(config, uid);
         Posthog.identify(config, uid);
       }
       return setToken('noauth');

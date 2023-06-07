@@ -7,9 +7,9 @@ const prod: ConfigInterface = !!global.window ? {
   server: {
     url: 'https://api.sqlpal.ai',
   },
-  // posthog: {
-  //   key: 'phc_8AIyTQ8yfM5hEeUEv4gMmIqIHq0KJ3q6nszlZKTmnDw',
-  // },
+  posthog: {
+    key: 'phc_8AIyTQ8yfM5hEeUEv4gMmIqIHq0KJ3q6nszlZKTmnDw',
+  },
   // sentry: {
   //   dsn: 'https://8ba9a3820f7f4179b5dc12754da9c943@o1090662.ingest.sentry.io/6544238',
   //   integrations: [new posthog.SentryIntegration(posthog, 'iasql', 6544238)],
