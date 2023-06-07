@@ -142,7 +142,7 @@ const getRecordCountByTableQuery = (dialect: string, tableSchema: string) => {
   }
 };
 
-const gettingStarted = `-- Welcome to SQLPal! Steps to get started:
+export const gettingStarted = `-- Welcome to SQLPal! Steps to get started:
  
 -- 1. Start writing your queries. Once the suggestion appears press tab to accept or esc to ignore.
 

@@ -1,5 +1,4 @@
 import { MouseEvent, forwardRef, useCallback, useEffect, useRef } from 'react';
-import React from 'react';
 import ReactAce, { IAceEditorProps } from 'react-ace/lib/ace';
 
 
@@ -7,7 +6,7 @@ import useLocalStorage from '../hooks/useLocalStorage';
 
 import QuerySidebar from './QuerySidebar/QuerySidebar';
 import { HBox, align, VBox, Tab, Spinner } from './common';
-import { ActionType, useAppContext } from './providers/AppProvider';
+import { ActionType, gettingStarted, useAppContext } from './providers/AppProvider';
 
 require('ace-builds/src-noconflict/ace');
 import  AceEdit from './AceEditor';
@@ -256,6 +255,7 @@ export default function IasqlEditor() {
   useEffect(() => {
     const debounceSuggestions = setTimeout(() => {
       if (!editorRef?.current?.editor?.autoSuggestEnabled) return;
+      if (editorTabs[editorSelectedTab].content === gettingStarted) return;
       maybeDispatchSuggestion();
     }, 1000);
     return () => clearTimeout(debounceSuggestions);
