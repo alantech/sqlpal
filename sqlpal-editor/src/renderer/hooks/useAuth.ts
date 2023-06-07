@@ -8,7 +8,7 @@ import * as Sentry from '../services/sentry';
 
 export function useAuth() {
   const [token, setToken] = useState(null) as unknown as [string | null, (arg0: string) => void];
-  const { getAccessTokenSilently, loginWithRedirect, isAuthenticated, isLoading, user } = useAuth0();
+  const { getAccessTokenSilently, loginWithRedirect, isAuthenticated, isLoading, user,loginWithPopup  } = useAuth0();
   const { config, uid } = useAppConfigContext();
   useEffect(() => {
     if (!config?.auth) {
@@ -21,6 +21,8 @@ export function useAuth() {
     // auth path
     const { audience, scope } = config?.auth?.authorizationParams;
     if (!isAuthenticated && !isLoading) {
+      console.log(window.location)
+      console.log(window.location.href)
       return void loginWithRedirect({ redirectUri: window.location.href } as any);
     }
     if (isAuthenticated && !token) {

@@ -63,7 +63,7 @@ const configuration: webpack.Configuration = {
     }),
 
     new webpack.IgnorePlugin({
-      resourceRegExp: /(sqlite3|pg-query-stream|oracledb|mysql2)/,
+      resourceRegExp: /(sqlite3|pg-query-stream|oracledb|mysql2|keytar)/,
     }),
 
     new webpack.LoaderOptionsPlugin({

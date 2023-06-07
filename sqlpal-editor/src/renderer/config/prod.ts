@@ -26,7 +26,7 @@ const prod: ConfigInterface = !!global.window ? {
   //     scope: 'read:current_user',
   //     audience: 'https://api.sqlpal.ai',
   //   },
-  //   useRefreshTokens: true,
+  //   useRefreshTokens: false,
   // },
   } : ({} as ConfigInterface);
 
