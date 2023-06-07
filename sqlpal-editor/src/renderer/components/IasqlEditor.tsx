@@ -39,7 +39,6 @@ export default function IasqlEditor() {
   const editorRef = useRef(null as null | ReactAce);
   const prevTabsLenRef = useRef(null as null | number);
   const loadingDotsRef = useRef(null as null | NodeJS.Timeout);
-  const suggestionsAbortControllerRef = useRef(null as null | AbortController);
 
   // Custom hooks
   const tabToAcceptLS = localStorage.getItem('tabToAccept');
@@ -139,13 +138,13 @@ export default function IasqlEditor() {
   );
 
   // detect clicks on the editor
-  const handleEditorClick = (e: MouseEvent) => {
+  const handleEditorClick = useCallback((e: MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target?.className?.includes('ace_error') && target?.className?.includes('ace_gutter-cell')) {
+    if (!!target?.className && typeof target.className === 'string' && target?.className?.includes('ace_error') && target?.className?.includes('ace_gutter-cell')) {
       // Interval to show loading dots
       const editor = editorRef?.current?.editor;
       if (editor) {
-        clearSuggestions();
+        clearSuggestions(editorSelectedTab);
         const position = editor.getCursorPosition();
         position.column = editor.session.getLine(position.row).length;
         editor.moveCursorTo(position.row, position.column);
@@ -164,7 +163,7 @@ export default function IasqlEditor() {
               data: {
                 query: key,
                 error: value,
-                schema: schema,
+                schema,
                 connString,
                 tabIdx: editorSelectedTab,
                 dialect,
@@ -180,7 +179,7 @@ export default function IasqlEditor() {
       }
     }
     e.stopPropagation();
-  };
+  }, [editorSelectedTab, editorRef.current, schema, connString, dialect, parseErrorsByStmt]);
 
   useEffect(() => {
     const command = {
@@ -345,18 +344,21 @@ export default function IasqlEditor() {
       if (editor && !shouldShow && loadingDotsRef.current) {
         removeLoadingDots(editor);
       }
+      if (editor && !shouldShow && !!editor.ghostText) {
+        clearSuggestions(editorSelectedTab);
+      }
     }
-  }, [editorTabs]);
+  }, [editorTabs, editorSelectedTab]);
 
   // Handler to clear suggestions
-  const clearSuggestions = () => {
+  const clearSuggestions = (tabIdx: number) => {
     const editor = editorRef.current?.editor;
     if (!!editor?.ghostText) {
       removeLoadingDots(editor);
-      editor.setGhostText('', editor.getCursorPosition());
-      editor.ghostText = undefined;
+      editor.removeGhostText();
+      editor.ghostText = '';
     }
-    dispatch({ action: ActionType.ResetSuggestion, data: { tabIdx: editorSelectedTab } });
+    dispatch({ action: ActionType.ResetSuggestion, data: { tabIdx } });
   };
 
   // Accepting suggestions will insert the suggestion
@@ -377,7 +379,7 @@ export default function IasqlEditor() {
           const range: any = { start: { row: currentPos.row, column: 0 }, end: currentPos };
           editor.session.replace(range, editor.ghostText);
         }
-        clearSuggestions();
+        clearSuggestions(editorSelectedTab);
       } else if (editor) {
         editor.insert(' '.repeat(editor?.getOptions().tabSize ?? 2));
       }
@@ -398,25 +400,26 @@ export default function IasqlEditor() {
         exec: handleSuggestionAcceptance,
       });
     }
-  }, [tabToAcceptSuggestions, editorRef.current]);
+  }, [tabToAcceptSuggestions, editorRef.current, editorSelectedTab]);
 
   // Rejecting suggestions will remove the suggestions and clear the ghost text
   // It also handles the key binding for rejecting suggestions. It will always be ESC
   useEffect(() => {
     let editor = editorRef?.current?.editor;
     if (editor) {
+      editor.commands.removeCommand('escapeListener');
       editor.commands.addCommand({
         name: 'escapeListener',
         bindKey: { win: 'Esc', mac: 'Esc' },
         exec: function () {
           if (!!editor?.ghostText) {
             removeLoadingDots(editor);
-            clearSuggestions();
+            clearSuggestions(editorSelectedTab);
           }
         },
       });
     }
-  }, [editorRef.current]);
+  }, [editorRef.current, editorSelectedTab]);
 
   // If auto suggest is not enabled, we need to add a key binding to trigger the suggestions
   // It will be ctrl+space
