@@ -5,7 +5,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { Disclosure, Menu, Transition } from '@headlessui/react';
 import { Bars3Icon, XMarkIcon, SunIcon, MoonIcon } from '@heroicons/react/24/outline';
 import { UserIcon } from '@heroicons/react/24/solid';
-import logo from '../public/images/logo.png';
+import logo from '../images/logo.png';
 
 import { ActionType, useAppContext } from './providers/AppProvider';
 import { useAppConfigContext } from './providers/ConfigProvider';

@@ -19,6 +19,7 @@ export enum ActionType {
   Disconnect = 'Disconnect',
   RunSql = 'RunSql',
   DiscoverSchema = 'DiscoverSchema',
+  SetConnStr = 'SetConnStr',
   SetDBConfig = 'SetDBConfig',
   EditContent = 'EditContent',
   ValidateContent = 'ValidateContent',
@@ -201,6 +202,8 @@ const reducer = (state: AppState, payload: Payload): AppState => {
       return {
         ...state,
         connString: '',
+        schema: {},
+        dialect: 'PLpgSQL',
         shouldShowDisconnect: false,
         editorTabs: tabsCopy,
         editorSelectedTab: 0,
@@ -293,9 +296,13 @@ const reducer = (state: AppState, payload: Payload): AppState => {
         forceRun: true,
       };
     }
+    case ActionType.SetConnStr: {
+      const { connString, dialect } = payload.data;
+      return { ...state, connString, dialect };
+    }
     case ActionType.SetDBConfig: {
-      const { connString, schema, dialect } = payload.data;
-      return { ...state, connString, schema, dialect };
+      const { schema } = payload.data;
+      return { ...state, schema };
     }
     case ActionType.GetSuggestions: {
       const { suggestions, tabIdx } = payload.data;
@@ -365,7 +372,7 @@ const middlewareReducer = async (
           schema[tableName][columnName] = { dataType, isMandatory };
           schema[tableName]['recordCount'] = recordCount;
         });
-        dispatch({ ...payload, data: { connString, schema, dialect } });
+        dispatch({ ...payload, data: { schema } });
       } catch (e: any) {
         const error = e.message ? e.message : `Unexpected error setting connection string`;
         dispatch({ ...payload, data: { error } });

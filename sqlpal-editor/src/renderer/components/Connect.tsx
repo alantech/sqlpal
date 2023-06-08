@@ -67,7 +67,6 @@ export default function Connect() {
       closeable={closeButtonEnabled}
       onClose={() => {
         dispatch({ action: ActionType.ShowConnect, data: { showConnect: false } });
-        // if (newDb) dispatch({ action: ActionType.ResetNewDb });
       }}
     >
       <Step
@@ -75,7 +74,7 @@ export default function Connect() {
         onFinish={() => {
           dispatch({ action: ActionType.ShowConnect, data: { showConnect: false } });
           dispatch({
-            action: ActionType.SetDBConfig,
+            action: ActionType.SetConnStr,
             data: {
               connString,
               dialect: dialects.find(d => d.protocol === connString.split(':')[0])?.key,

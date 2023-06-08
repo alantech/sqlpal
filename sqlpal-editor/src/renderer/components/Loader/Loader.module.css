@@ -9,7 +9,6 @@
 }
 
 .loader-logo {
-  background-image: url(../../public/images/logo.png);
   background-repeat: no-repeat;
   background-position: center center;
   background-size: contain;
@@ -25,9 +24,6 @@
   .loader-wrapper {
     background-color: rgb(12, 13, 11);
     background: linear-gradient(45deg, rgb(36, 38, 33) 0%, rgb(33, 36, 38) 100%);
-  }
-  .loader-logo {
-    background-image: url(../../public/images/logo.png);
   }
 }
 

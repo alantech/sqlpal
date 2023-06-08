@@ -18,6 +18,8 @@ export default function Main() {
   const {
     dispatch,
     connString,
+    schema,
+    dialect,
     error: appError,
     shouldShowDisconnect,
     shouldShowConnect,
@@ -41,7 +43,9 @@ export default function Main() {
       if (!('theme' in localStorage)) {
         localStorage.setItem(
           'theme',
-          window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+          window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light'
         );
       }
       if (localStorage.getItem('theme') === 'dark') {
@@ -49,56 +53,84 @@ export default function Main() {
       } else {
         document.documentElement.classList.remove('dark');
       }
-      dispatch({ action: ActionType.SelectAppTheme, data: { theme: localStorage.getItem('theme') } });
+      dispatch({
+        action: ActionType.SelectAppTheme,
+        data: { theme: localStorage.getItem('theme') },
+      });
     }
   }, [dispatch, token, latestVersion]);
+
+  useEffect(() => {
+    if (connString && dialect && !Object.keys(schema ?? {}).length) {
+      dispatch({
+        action: ActionType.SetDBConfig,
+        data: { connString, dialect },
+      });
+    }
+  }, [connString, schema, dialect, dispatch]);
 
   return (
     <>
       {/* Modals */}
-      {isSmallViewport && <SmallViewport showSmallViewport={showSmallViewport} />}
+      {isSmallViewport && (
+        <SmallViewport showSmallViewport={showSmallViewport} />
+      )}
       {appError && <ErrorDialog />}
       {token && shouldShowConnect && <Connect />}
       {token && shouldShowDisconnect && <Disconnect />}
       <Navbar userPic={user?.picture ?? '' /* TODO: Default pic? */} />
-      {!latestVersion ? (
-        <Loader />
-      ) : (
-        <>
-          <main>
-            {!connString ? (
-              <div className='max-w-full mx-auto pt-4 sm:px-4 lg:px-6'>
-                <EmptyState>
-                  <p>No connected databases</p>
-                  <HBox customStyles='mt-2'>
-                    <Button
-                      look='iasql'
-                      onClick={() => {
-                        dispatch({ action: ActionType.ShowConnect, data: { showConnect: true } });
-                      }}
-                    >
-                      <HBox alignment={align.around}>
-                        <CircleStackIcon className='w-5 h-5' aria-hidden='true' />
-                        <PlusSmallIcon className='w-5 h-5 mr-1 ' aria-hidden='true' />
-                        Connect database
-                      </HBox>
-                    </Button>
-                  </HBox>
-                </EmptyState>
-              </div>
-            ) : (
-              <>
-                <div className='max-w-full mx-auto pt-4 sm:px-4 lg:px-6'>
-                  <DatabaseManagement />
+      {(() => {
+        if (
+          !latestVersion ||
+          (connString && dialect && !Object.keys(schema ?? {}).length)
+        ) {
+          return <Loader />;
+        } else {
+          return <>
+            <main>
+              {!connString ? (
+                <div className="max-w-full mx-auto pt-4 sm:px-4 lg:px-6">
+                  <EmptyState>
+                    <p>No connected databases</p>
+                    <HBox customStyles="mt-2">
+                      <Button
+                        look="iasql"
+                        onClick={() => {
+                          dispatch({
+                            action: ActionType.ShowConnect,
+                            data: { showConnect: true },
+                          });
+                        }}
+                      >
+                        <HBox alignment={align.around}>
+                          <CircleStackIcon
+                            className="w-5 h-5"
+                            aria-hidden="true"
+                          />
+                          <PlusSmallIcon
+                            className="w-5 h-5 mr-1 "
+                            aria-hidden="true"
+                          />
+                          Connect database
+                        </HBox>
+                      </Button>
+                    </HBox>
+                  </EmptyState>
                 </div>
-                <div className='max-w-full mx-auto py-2 sm:px-4 lg:px-6'>
-                  <Query />
-                </div>
-              </>
-            )}
-          </main>
-        </>
-      )}
+              ) : (
+                <>
+                  <div className="max-w-full mx-auto pt-4 sm:px-4 lg:px-6">
+                    <DatabaseManagement />
+                  </div>
+                  <div className="max-w-full mx-auto py-2 sm:px-4 lg:px-6">
+                    <Query />
+                  </div>
+                </>
+              )}
+            </main>
+          </>;
+        }
+      })()}
     </>
   );
 }
