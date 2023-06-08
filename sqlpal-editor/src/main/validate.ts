@@ -21,11 +21,9 @@ async function validate(content: string, schema: Schema, dialect: keyof typeof S
     const surveyor = new SQLSurveyor(SQLDialect[extractedDialect] ?? SQLDialect.PLpgSQL);
     const parsedSql = surveyor.survey(content);
     if (parsedSql && parsedSql.parsedQueries && Object.keys(parsedSql.parsedQueries).length > 0) {
-      console.dir(parsedSql, { depth: null });
       // Make sure that all tableNames and columnNames in body.schema are lowercase
       const normalizedSchema: Schema = normalizeSchema(schema);
       validationErr = validateParsedSql(parsedSql, normalizedSchema);
-      console.log(`validation error: ${validationErr}`);
     } else if (content && (content as string).startsWith('--')) {
       validationErr = '';
     } else {
@@ -98,7 +96,6 @@ function validateParsedQuery(parsedQuery: ParsedQuery, schema: Schema): string[]
   const tableErrors = validateTables(parsedQuery, schema);
   // Check if output columns are part of schema and table
   const outputColumnErrors = validateOutputColumns(parsedQuery, schema);
-  console.log('outputColumnErrors', outputColumnErrors);
   // Check if referenced columns are part of the schema and table
   const referencedColumnErrors = validateReferencedColumns(parsedQuery, schema);
   return errs.concat(queryErrors, tableErrors, outputColumnErrors, referencedColumnErrors);
@@ -127,9 +124,7 @@ function validateTables(parsedQuery: ParsedQuery, schema: Schema): string[] {
 function validateOutputColumns(parsedQuery: ParsedQuery, schema: Schema): string[] {
   let errs: string[] = [];
   const tables = Object.keys(parsedQuery.referencedTables);
-  console.log('tables', tables);
   const parsedOutputColumns = parsedQuery.outputColumns;
-  console.log('columns', JSON.stringify(parsedOutputColumns));
   const identifiers = Object.values(parsedQuery.tokens)
     .filter(t => t.type === 'IDENTIFIER')
     .map(t => t.value);

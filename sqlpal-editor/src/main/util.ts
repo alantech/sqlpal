@@ -81,7 +81,6 @@ export async function post(
   signal?: AbortSignal,
 ): Promise<Response> {
   try {
-    console.log('signal', signal)
     const resp = await fetch(`${backendUrl}/${endpoint}`, {
       method: 'POST',
       signal,
@@ -176,7 +175,6 @@ async function generateCreateTableStatement(
     }
     case 'TSQL': {
       const res = await knex.raw(getMSSQLCreateStatementQuery(tableName));
-      console.log(`getMSSQLCreateStatementQuery: ${JSON.stringify(res)}`);
       if (res.length) {
         createTableStatement = res[0].create_table;
       }

@@ -46,7 +46,6 @@ const electronHandler = {
         conn_str: connString,
         dialect,
       });
-      console.log('body prepared', body);
       const signal = abortIfNecessaryAndReturnSignal(endpoint);
       const resp = await post(backendUrl, endpoint, body, false, signal);
       return resp.json();

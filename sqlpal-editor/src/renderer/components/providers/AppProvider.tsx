@@ -456,9 +456,7 @@ const middlewareReducer = async (
       if (!connString) break;
       let suggestions: any[] = [];
       try {
-        console.log(`befeore autocomplete`)
         const autocompleteRes: any = await DbActions.autocomplete(url, connString, query, dialect);
-        console.log(`after autocomplete`)
         if (autocompleteRes['suggestions'] && Array.isArray(autocompleteRes['suggestions'])) {
           // validate the suggestions and return the first valid one
           for (const suggestion of autocompleteRes['suggestions']) {
@@ -474,7 +472,6 @@ const middlewareReducer = async (
         }
       } catch (e: any) {
         // todo: handle error
-        console.log('catching this error');
         console.error(e);
         suggestions = [];
       }
@@ -502,7 +499,6 @@ const middlewareReducer = async (
         }
       } catch (e: any) {
         // todo: handle error
-        console.log('catching this error');
         console.error(e);
         suggestions = [];
       }

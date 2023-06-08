@@ -25,15 +25,12 @@ const AppConfigProvider = ({ children }: { children: any }) => {
   const [appConfig, setAppConfig] = useState({} as AppConfig);
   useEffect(() => {
     const getConfig = async () => {
-      console.log(`am i running?`);
       const configJson = window?.electron?.config?.get();
       if (!Object.keys(appConfig).length && Object.keys(configJson ?? {}).length) {
         const initialAppConfig: AppConfig = {} as AppConfig;
         if (!configJson.sqlpalEnv) throwError('No SQLPAL ENV provided');
         initialAppConfig.sqlpalEnv = configJson.sqlpalEnv as ConfigEnvironments;
         const envConfig = config[configJson?.sqlpalEnv as ConfigEnvironments];
-        console.log(configJson?.sqlpalEnv);
-        console.log(envConfig);
         if (!envConfig) throwError('Invalid SQLPAL ENV provided');
         initialAppConfig.config = envConfig;
         if (!initialAppConfig.config?.auth && !configJson.uid) {
