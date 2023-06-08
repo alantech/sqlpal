@@ -73,6 +73,8 @@ const createWindow = async () => {
     show: false,
     width: 1280,
     height: 800,
+    minWidth: 1000,
+    minHeight: 600,
     icon: getAssetPath('icon.png'),
     webPreferences: {
       nodeIntegration: true,
@@ -83,8 +85,6 @@ const createWindow = async () => {
   });
 
   mainWindow.loadURL(resolveHtmlPath('index.html'));
-
-  await mainWindow.webContents.openDevTools({ mode: 'detach' });
 
   mainWindow.on('ready-to-show', () => {
     if (!mainWindow) {
