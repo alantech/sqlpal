@@ -171,12 +171,6 @@ const validateSql = async (
 ): Promise<string> => {
   let validationErr = '';
   try {
-    // const sqlParseRes = await fetch(`/api/sqlParser/validate`, {
-    //   body: JSON.stringify({ content: stmt, schema, dialect }),
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    // });
-    // const sqlParseErr = await sqlParseRes.json();
     const sqlParseErr = await window.electron.editor.validate(stmt, schema as any, dialect);
     if (sqlParseErr.message) validationErr = sqlParseErr.message;
   } catch (e) {
