@@ -62,37 +62,23 @@ async function runSql(sql: string, connectionString: string, dialect: keyof type
   const out: any = [];
   const surveyor = new SQLSurveyor(SQLDialect[dialect] ?? SQLDialect.PLpgSQL);
   const client = getDbClient(connectionString, dialect);
-  if (SQLDialect[dialect] === SQLDialect.TSQL) {
+  const parsedSql = surveyor.survey(sql);
+  const stmts = Object.values(parsedSql?.parsedQueries ?? {}).map((q: ParsedQuery) => q.query);
+  for (const stmt of stmts) {
     try {
-      const queryRes = await client.raw(sql);
+      const queryRes = await client.raw(stmt);
       out.push({
-        statement: sql,
+        statement: stmt,
         queryRes,
       });
     } catch (e) {
       throw e;
-    } finally {
-      await client.destroy();
     }
-  } else {
-    const parsedSql = surveyor.survey(sql);
-    const stmts = Object.values(parsedSql?.parsedQueries ?? {}).map((q: ParsedQuery) => q.query);
-    for (const stmt of stmts) {
-      try {
-        const queryRes = await client.raw(stmt);
-        out.push({
-          statement: stmt,
-          queryRes,
-        });
-      } catch (e) {
-        throw e;
-      }
-    }
-    try {
-      await client?.destroy();
-    } catch (e) {
-      console.error(e);
-    }
+  }
+  try {
+    await client?.destroy();
+  } catch (e) {
+    console.error(e);
   }
   switch (KnexClient[dialect as keyof typeof KnexClient]) {
     case KnexClient.PLpgSQL: {
