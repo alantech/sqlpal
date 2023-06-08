@@ -89,7 +89,6 @@ def autocomplete():
     if request.method == 'OPTIONS':
         return make_response(jsonify({}), 200)
 
-    # st = time.time()
     db, error = connect_to_db(request)
     dialect = request.json.get('dialect', 'postgresql')
     if error:
@@ -105,17 +104,6 @@ def autocomplete():
             # execute query autocompletion
             result = autocomplete_query_suggestions(
                 query.strip(), docsearch, dialect)
-            # TODO: do this on the client side
-            # et = time.time()
-            # elapsed_time = (et - st)*1000
-            # allowed_timeout = TOTAL_AUTOCOMPLETE_TIME*1000 - elapsed_time
-            # if allowed_timeout > 0 and len(result) > 0:
-            #     # we can trigger the SQL explain, for just the total remainder time
-            #     valid = explain_query(db, result[0], allowed_timeout)
-            #     if not valid:
-            #         # just return a blank query
-            #         response = jsonify({'suggestions': []})
-            #         return response
             response = jsonify({'suggestions': result})
             return response
         else:
@@ -147,17 +135,6 @@ def repair():
             # execute query repair
             result = repair_query_suggestions(
                 query.strip(), error_message.strip(), docsearch, dialect)
-            # TODO: do this in the client side
-            # et = time.time()
-            # elapsed_time = (et - st)*1000
-            # allowed_timeout = TOTAL_AUTOCOMPLETE_TIME*1000 - elapsed_time
-            # if allowed_timeout > 0 and len(result) > 0:
-            #     # we can trigger the SQL explain, for just the total remainder time
-            #     valid = explain_query(db, result[0], allowed_timeout)
-            #     if not valid:
-            #         # just return a blank query
-            #         response = jsonify({'suggestions': []})
-            #         return response
             response = jsonify({'suggestions': result})
             return response
         else:
