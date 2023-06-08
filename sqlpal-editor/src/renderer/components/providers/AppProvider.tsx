@@ -142,6 +142,16 @@ const getRecordCountByTableQuery = (dialect: string, tableSchema: string) => {
   }
 };
 
+const generateAnalyzerQueriesForMysql = (dbId: string): string => {
+  return `
+    SELECT GROUP_CONCAT(concat('ANALYZE TABLE \`', table_name, '\`;') SEPARATOR '') AS O
+    FROM INFORMATION_SCHEMA.TABLES
+    WHERE TABLE_TYPE = 'BASE TABLE'
+      AND table_name != 'dual'
+      AND table_name != 'index_content'
+      AND TABLE_SCHEMA = '${dbId}'`;
+};
+
 export const gettingStarted = `-- Welcome to SQLPal! Steps to get started:
  
 -- 1. Start writing your queries. Once the suggestion appears press tab to accept or esc to ignore.
@@ -334,6 +344,18 @@ const middlewareReducer = async (
       try {
         let schemaRes: any = undefined;
         const dbId = connString.split('/')?.pop()?.split('?')?.[0] ?? '';
+        if (dialect === 'MYSQL') {
+          const analyzerQueriesForMysqlGenerator = generateAnalyzerQueriesForMysql(dbId);
+          const analyzerQueriesForMysqlRes = await DbActions.run(connString, analyzerQueriesForMysqlGenerator, dialect);
+          await Promise.all(Object.entries(analyzerQueriesForMysqlRes?.[0]?.result?.[0] ?? {}).map(async ([_, v]) => {
+            if (!!v && typeof v === 'string') {
+              const queries = v.split(';');
+              for (const q of queries) {
+                if (q) await DbActions.run(connString, q, dialect);
+              }
+            }
+          }));
+        }
         const initialQuery = generateInitialQuery(dialect, dbId);
         schemaRes = await DbActions.run(connString, initialQuery, dialect);
         (schemaRes?.[0]?.result ?? []).forEach((row: any) => {
