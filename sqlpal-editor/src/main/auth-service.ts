@@ -155,11 +155,16 @@ async function logout () {
   refreshToken = null
 }
 
+function getLogOutUrl() {
+  return `https://${auth0Domain}/v2/logout`;
+}
+
 export default {
   getAccessToken,
   getAuthenticationURL,
   getProfile,
   loadTokens,
   logout,
-  refreshTokens
+  refreshTokens,
+  getLogOutUrl,
 }

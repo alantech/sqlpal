@@ -13,6 +13,10 @@ export function useAuth() {
   useEffect(() => {
     if (!config?.auth) {
       if (uid) {
+        console.log('no auth, but uid so lets get the profile')
+        window.electron.auth.getProfile().then((prof) => {
+          console.log(prof)
+        });
         // Sentry.identify(config, uid);
         Posthog.identify(config, uid);
       }

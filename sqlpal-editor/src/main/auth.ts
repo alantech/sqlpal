@@ -83,4 +83,17 @@ function destroyAuthWin () {
   win = null
 }
 
-export default createAuthWindow;
+function createLogoutWindow() {
+  const logoutWindow = new BrowserWindow({
+    show: false,
+  });
+
+  logoutWindow.loadURL(authService.getLogOutUrl());
+
+  logoutWindow.on('ready-to-show', async () => {
+    await authService.logout();
+    logoutWindow.close();
+  });
+}
+
+export {createAuthWindow, createLogoutWindow};

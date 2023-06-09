@@ -12,7 +12,7 @@
 import { BrowserWindow, app, ipcMain, net, protocol, session } from 'electron';
 import authService from './auth-service';
 import { createAppWindow } from './app';
-import createAuthWindow from './auth';
+import { createAuthWindow, createLogoutWindow } from './auth';
 import path from 'path';
 import { resolveHtmlPath } from './util';
 
@@ -73,6 +73,13 @@ app.on('window-all-closed', () => {
 app
   .whenReady()
   .then(() => {
+    // Handle IPC messages from the renderer process.
+    ipcMain.handle('auth:get-profile', authService.getProfile);
+    ipcMain.on('auth:log-out', () => {
+      BrowserWindow.getAllWindows().forEach(window => window.close());
+      createLogoutWindow();
+    });
+
     // session.defaultSession.webRequest.onBeforeRequest({ urls: [`file:*`] },(details, callback) => {
     //   console.log(details.url)
     //   callback({

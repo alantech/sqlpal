@@ -1,6 +1,6 @@
 // Disable no-unused-vars, broken for spread args
 /* eslint no-unused-vars: off */
-import { contextBridge } from 'electron';
+import { contextBridge, ipcRenderer } from 'electron';
 import run from './run';
 import { post, prepareBody, Schema } from './util';
 import validate from './validate';
@@ -107,6 +107,10 @@ const electronHandler = {
         dialect as keyof typeof SQLDialect
       );
     },
+  },
+  auth: {
+    getProfile: () => ipcRenderer.invoke('auth:get-profile'),
+    logOut: () => ipcRenderer.send('auth:log-out'),
   },
 };
 
