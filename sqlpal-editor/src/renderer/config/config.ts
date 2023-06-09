@@ -10,6 +10,7 @@ export interface ConfigInterface {
       audience: string;
       redirect_uri: string;
       scope: string;
+      response_type?: string;
     };
     useRefreshTokens: boolean;
   };

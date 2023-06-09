@@ -19,14 +19,15 @@ export function useAuth() {
       return setToken('noauth');
     }
     // auth path
-    const { audience, scope } = config?.auth?.authorizationParams;
+    const { audience, scope, redirect_uri: redirectUri, response_type: responseType } = config?.auth?.authorizationParams;
     if (!isAuthenticated && !isLoading) {
-      return void loginWithRedirect({ redirectUri: window.location.href } as any);
+      return void loginWithRedirect({ redirectUri } as any);
     }
     if (isAuthenticated && !token) {
       getAccessTokenSilently({
         audience,
         scope,
+        responseType,
       } as any).then((accessToken: any) => setToken(accessToken));
     }
     if (user && user.sub) {

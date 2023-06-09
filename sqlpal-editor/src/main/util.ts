@@ -48,6 +48,7 @@ export function resolveHtmlPath(htmlFileName: string) {
 }
 
 async function maybeHandleFetchError(response: Response): Promise<void> {
+  console.log('maybeHandleFetchError', response)
   // TODO: What type here?
   if (!response.ok) {
     let message;
@@ -81,12 +82,13 @@ export async function post(
   signal?: AbortSignal,
 ): Promise<Response> {
   try {
+    console.log(`post: ${backendUrl}/${endpoint}`)
     const resp = await fetch(`${backendUrl}/${endpoint}`, {
       method: 'POST',
       signal,
       body: raw ? body : JSON.stringify(body),
       headers: {
-        'Content-Type': raw ? 'text/plain' : 'application/json',
+        'Content-Type': raw ? 'text/plain' : 'application/json'
       },
     });
     await redirectIfUnauthorized(resp);

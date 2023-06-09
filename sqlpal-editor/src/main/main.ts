@@ -8,20 +8,15 @@
  * When running `npm run build` or `npm run build:main`, this file is compiled to
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
+
+import { BrowserWindow, app, ipcMain, net, protocol, session } from 'electron';
+import authService from './auth-service';
+import { createAppWindow } from './app';
+import createAuthWindow from './auth';
 import path from 'path';
-import { app, BrowserWindow, shell, ipcMain } from 'electron';
-import { autoUpdater } from 'electron-updater';
-import log from 'electron-log';
-import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 
-class AppUpdater {
-  constructor() {
-    log.transports.file.level = 'info';
-    autoUpdater.logger = log;
-    autoUpdater.checkForUpdatesAndNotify();
-  }
-}
+
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -36,88 +31,28 @@ if (process.env.NODE_ENV === 'production') {
   sourceMapSupport.install();
 }
 
-const isDebug =
-  process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD === 'true';
-
-if (isDebug) {
-  require('electron-debug')();
+async function createWindow () {
+  try {
+    await authService.refreshTokens()
+    mainWindow = await createAppWindow();
+  } catch (err) {
+    console.log('err', err)
+    await createAuthWindow();
+  }
 }
 
-const installExtensions = async () => {
-  const installer = require('electron-devtools-installer');
-  const forceDownload = !!process.env.UPGRADE_EXTENSIONS;
-  const extensions = ['REACT_DEVELOPER_TOOLS'];
 
-  return installer
-    .default(
-      extensions.map((name) => installer[name]),
-      forceDownload
-    )
-    .catch(console.log);
-};
-
-const createWindow = async () => {
-  if (isDebug) {
-    await installExtensions();
-  }
-
-  const RESOURCES_PATH = app.isPackaged
-    ? path.join(process.resourcesPath, 'assets')
-    : path.join(__dirname, '../../assets');
-
-  const getAssetPath = (...paths: string[]): string => {
-    return path.join(RESOURCES_PATH, ...paths);
-  };
-
-  mainWindow = new BrowserWindow({
-    show: false,
-    width: 1280,
-    height: 800,
-    minWidth: 1000,
-    minHeight: 600,
-    icon: getAssetPath('icon.png'),
-    webPreferences: {
-      nodeIntegration: true,
-      preload: app.isPackaged
-        ? path.join(__dirname, 'preload.js')
-        : path.join(__dirname, '../../.erb/dll/preload.js'),
-    },
-  });
-
-  mainWindow.loadURL(resolveHtmlPath('index.html'));
-
-  mainWindow.on('ready-to-show', () => {
-    if (!mainWindow) {
-      throw new Error('"mainWindow" is not defined');
-    }
-    if (process.env.START_MINIMIZED) {
-      mainWindow.minimize();
-    } else {
-      mainWindow.show();
-    }
-  });
-
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
-
-  const menuBuilder = new MenuBuilder(mainWindow);
-  menuBuilder.buildMenu();
-
-  // Open urls in the user's browser
-  mainWindow.webContents.setWindowOpenHandler((edata) => {
-    shell.openExternal(edata.url);
-    return { action: 'deny' };
-  });
-
-  // Remove this if your app does not use auto updates
-  // eslint-disable-next-line
-  new AppUpdater();
-};
 
 /**
  * Add event listeners...
  */
+
+
+// // This method will be called when Electron has finished
+// // initialization and is ready to create browser windows.
+// // Some APIs can only be used after this event occurs.
+
+
 
 app.on('window-all-closed', () => {
   // Respect the OSX convention of having the application in memory even
@@ -127,9 +62,75 @@ app.on('window-all-closed', () => {
   }
 });
 
+// app.on('activate', async () => {
+//   protocol.registerSchemesAsPrivileged([
+//     { scheme: 'sqlpal', privileges: { supportFetchAPI: true, allowServiceWorkers: true, bypassCSP: true, corsEnabled: true, secure: true, standard: true, stream: true  } },
+//     { scheme: 'file', privileges: { supportFetchAPI: true, allowServiceWorkers: true, bypassCSP: true, corsEnabled: true, secure: true, standard: true, stream: true  } },
+//     // { scheme: 'https', privileges: { supportFetchAPI: true, allowServiceWorkers: true, bypassCSP: true, corsEnabled: true, secure: true, standard: true, stream: true } },
+//   ])
+// });
+
 app
   .whenReady()
   .then(() => {
+    // session.defaultSession.webRequest.onBeforeRequest({ urls: [`file:*`] },(details, callback) => {
+    //   console.log(details.url)
+    //   callback({
+    //       redirectURL: resolveHtmlPath('index.html')
+    //   })
+    // });
+
+    
+
+
+    // protocol.interceptFileProtocol('sqlpal', (request, callback) => {
+    //   console.log('sqlpal protocol is intercepted: ')
+    //   // console.log('sqlpal protocol is intercepted: ', protocol.isProtocolIntercepted('sqlpal'))
+    //   // const url = request.url.substr(7);    /* all urls start with 'file://' */
+    //   console.log(request.url)
+    //   callback({ path: resolveHtmlPath('index.html') });
+    // });
+
+    // protocol.interceptHttpProtocol('sqlpal', (request, callback) => {
+    //   console.log('intercepted here?')
+    //   // const url = request.url.substr(7);    /* all urls start with 'file://' */
+    //   console.log(request.url)
+    //   callback({ path: resolveHtmlPath('index.html') });
+    // });
+
+    // protocol.interceptFileProtocol('file', (request, callback) => {
+    //   // const url = request.url.substr(7);    /* all urls start with 'file://' */
+    //   callback({ path: resolveHtmlPath('index.html') });
+    // });
+
+  // protocol.interceptHttpProtocol('https', (request, callback) => {
+  //   // just make the request call
+  //   console.log(request.url);
+  //   const req = net.request(request);
+  //   console.log('req called')
+  //   console.log('waiting response')
+  //   req.on('response', (response) => {
+  //     console.log('response received')
+  //     response.on('data', (chunk) => {
+  //       console.log('data received')
+  //       callback({
+  //         statusCode: response.statusCode,
+  //         headers: response.headers,
+  //         data: chunk,
+  //       });
+  //     });
+  //   });
+  //   req.on('error', (error) => {
+  //     console.log('error received')
+  //     console.log(JSON.stringify(error))
+  //     callback({
+  //       statusCode: 500,
+  //       headers: {},
+  //       data: error.message,
+  //     });
+  //   });
+  // });
+
     createWindow();
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
