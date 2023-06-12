@@ -13,13 +13,14 @@ export function useAuth() {
     (arg0: any) => void
   ];
   const { config, sqlpalEnv } = useAppConfigContext();
+  const isLocal = sqlpalEnv === 'local';
   useEffect(() => {
     const getAuthInfo = async () => {
-      // if (sqlpalEnv === 'local') {
-      //   setToken('noauth');
-      //   Posthog.identify(config, 'local');
-      //   return;
-      // }
+      if (isLocal) {
+        setToken('noauth');
+        Posthog.identify(config, sqlpalEnv);
+        return;
+      }
       const profile = await window.electron.auth.getProfile();
       if (profile.email && profile.sub) {
         setUser(profile);
