@@ -20,17 +20,14 @@ export default function RageClickers({ show }: { show: (arg0: boolean) => void }
       title='Why so many clicks?'
       icon={<ExclamationCircleIcon className='h-6 w-6 text-warn' aria-hidden='true' />}
       onClose={() => show(false)}
+      closeable={false}
     >
       <img src={pickRandomImage()} />
       <Label>Some operations can take their time since they depend on the cloud provider API.</Label>
       <Label>
         Please be patient or contact us via{' '}
-        <a className='text-primary' href='mailto:hello@iasql.com'>
+        <a className='text-primary' href='mailto:hello@alantechnologies.com'>
           email
-        </a>{' '}
-        or{' '}
-        <a className='text-primary' href='https://discord.iasql.com' target='_blank' rel='noreferrer'>
-          Discord
         </a>{' '}
         if something seems wrong.
       </Label>

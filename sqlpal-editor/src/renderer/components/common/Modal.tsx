@@ -80,7 +80,7 @@ export default function Modal({
                 >
                   {title}
                 </Dialog.Title>
-                {closeable && (
+                {!!onClose && (
                   <>
                     <div className='flex-grow'>&nbsp;</div>
                     <div
