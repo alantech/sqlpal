@@ -1,7 +1,6 @@
 import { Fragment } from 'react';
 
 import * as Posthog from '../services/posthog';
-import { useAuth0 } from '@auth0/auth0-react';
 import { Disclosure, Menu, Transition } from '@headlessui/react';
 import { Bars3Icon, XMarkIcon, SunIcon, MoonIcon } from '@heroicons/react/24/outline';
 import { UserIcon } from '@heroicons/react/24/solid';
@@ -15,10 +14,13 @@ function classNames(...classes: any[]) {
 }
 
 export default function Navbar({ userPic }: { userPic: string }) {
-  const { config, telemetry } = useAppConfigContext();
+  const { config, telemetry, sqlpalEnv } = useAppConfigContext();
   const { token, isDarkMode, dispatch } = useAppContext();
-  const { logout } = useAuth0();
   const homeUrl = 'http://localhost:3000/index.html';
+  const isDev = sqlpalEnv === 'local';
+  const logout = () => {
+    window.electron.auth.logOut();
+  };
   const navigation: any[] = [
   ];
   return (
@@ -90,7 +92,8 @@ export default function Navbar({ userPic }: { userPic: string }) {
                   <div className='h-8 text-white'>{isDarkMode ? <MoonIcon /> : <SunIcon />}</div>
                 </button>
               </div>
-              {token && config?.auth && (
+              {/* {token && !isDev && ( */}
+              {token && true && (
                 <div className='absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:pr-0'>
                   {/* Profile dropdown */}
                   <Menu as='div' className='ml-3 relative'>
@@ -122,7 +125,7 @@ export default function Navbar({ userPic }: { userPic: string }) {
                                   Posthog.capture(config, 'LOGOUT');
                                   Posthog.reset(config);
                                 }
-                                logout({ returnTo: homeUrl } as any);
+                                logout();
                               }}
                               className={classNames(
                                 active ? 'bg-gray-100 dark:bg-gray-900 cursor-pointer' : '',

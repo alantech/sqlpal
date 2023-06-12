@@ -8,7 +8,6 @@ import {
 } from '../../config/config';
 
 interface AppConfig {
-  uid?: string;
   telemetry?: 'on' | 'off';
   sqlpalEnv: ConfigEnvironments;
   config: ConfigInterface;
@@ -33,10 +32,6 @@ const AppConfigProvider = ({ children }: { children: any }) => {
         const envConfig = config[configJson?.sqlpalEnv as ConfigEnvironments];
         if (!envConfig) throwError('Invalid SQLPAL ENV provided');
         initialAppConfig.config = envConfig;
-        if (!initialAppConfig.config?.auth && !configJson.uid) {
-          throwError('No UID provided');
-        }
-        initialAppConfig.uid = configJson.uid;
         initialAppConfig.telemetry = configJson.telemetry as 'on' | 'off';
         setAppConfig(initialAppConfig);
       }

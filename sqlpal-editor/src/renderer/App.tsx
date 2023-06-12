@@ -1,10 +1,12 @@
 import { MemoryRouter as Router, Routes, Route } from 'react-router-dom';
 import 'tailwindcss/tailwind.css';
 import './styles/globals.css';
-import { AppConfigProvider, useAppConfigContext } from './components/providers/ConfigProvider';
+import {
+  AppConfigProvider,
+  useAppConfigContext,
+} from './components/providers/ConfigProvider';
 import { useEffect, useState } from 'react';
 import logdna from '@logdna/browser';
-import { Auth0Provider } from '@auth0/auth0-react';
 
 import * as Posthog from './services/posthog';
 import * as Sentry from './services/sentry';
@@ -20,7 +22,10 @@ function handleRageClicking(setIsRageClicking: (arg0: boolean) => void) {
   const secondLastClick = localStorage.getItem('secondLastClick') ?? '0';
   localStorage.setItem('lastClick', now.toString());
   localStorage.setItem('secondLastClick', lastClick);
-  if (now - parseInt(lastClick) < 500 && now - parseInt(secondLastClick) < 500) {
+  if (
+    now - parseInt(lastClick) < 500 &&
+    now - parseInt(secondLastClick) < 500
+  ) {
     setIsRageClicking(true);
   }
 }
@@ -43,9 +48,9 @@ function Home() {
   }, [telemetry, config]);
 
   const body = (
-      <AppProvider>
-        <Main />
-      </AppProvider>
+    <AppProvider>
+      <Main />
+    </AppProvider>
   );
 
   const app = (
@@ -57,17 +62,7 @@ function Home() {
     >
       {configError && <ErrorDialog />}
       {isRageClicking && <RageClickers show={setIsRageClicking} />}
-      {!config?.server ? (
-        <Loader />
-      ) : (
-        <>
-          {config.auth ? (
-            <Auth0Provider {...config.auth}>{body}</Auth0Provider>
-          ) : (
-            body
-          )}
-        </>
-      )}
+      {!config?.server ? <Loader /> : <>{body}</>}
     </div>
   );
   return app;
@@ -76,11 +71,11 @@ function Home() {
 export default function App() {
   return (
     <AppConfigProvider>
-    <Router>
-      <Routes>
-        <Route path="/" element={<Home />} />
-      </Routes>
-    </Router>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Home />} />
+        </Routes>
+      </Router>
     </AppConfigProvider>
   );
 }

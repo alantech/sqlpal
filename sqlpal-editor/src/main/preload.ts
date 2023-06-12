@@ -23,7 +23,6 @@ const electronHandler = {
     get() {
       return {
         sqlpalEnv: process.env.NODE_ENV === 'production' ? 'prod' : 'local',
-        uid: 'uid',
         telemetry: process.env.NODE_ENV === 'production' ? 'on' : 'off',
       };
     },
@@ -110,6 +109,7 @@ const electronHandler = {
   },
   auth: {
     getProfile: () => ipcRenderer.invoke('auth:get-profile'),
+    getAccessToken: () => ipcRenderer.invoke('auth:get-access-token'),
     logOut: () => ipcRenderer.send('auth:log-out'),
   },
 };
