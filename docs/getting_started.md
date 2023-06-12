@@ -4,15 +4,23 @@ SQLPal is an open-source developer tool designed to be your pal for SQL, of cour
 
 If you want to start using it, is as simple as cloning the app, and executing:
 
-```
+```sh
 yarn docker-build
 yarn docker-run
 ```
 
-It will start a `docker-compose` deployment, with the dashboard and LLM engine on one side, and a testing database on the other.
+It will start a `docker-compose` deployment, with the LLM engine on one side, and a testing database on the other.
 
-To access the dashboard go to: http://localhost:9876
-The db connection string for the testing database: postgres://sqlpaluser:sqlpass@local_pg:5432/sqlpal
+To start the SQLPal desktop app:
+
+```sh
+cd sqlpal-editor
+npm start
+```
+
+> Warning: If it is the first time, sometimes you have to run `npm start`, the app will fail loading preload.js script, just cancel and run `npm start` again
+
+The db connection string for the testing database: postgresql://sqlpaluser:sqlpass@localhost:5432/sqlpal
 
 The LLM engine allows multiple configuration parameters, that need to be provided via an `.env` file that needs to be placed on project root (see `.env.sample` file).
 The following options are possible:

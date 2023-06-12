@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 api_bp = Blueprint('api_bp', __name__)
 app = Flask(__name__)
 CORS(app, resources={
-     r"/*": {"origins": "http://localhost:9876", "supports_credentials": True}})
+     r"/*": {"origins": "http://localhost:3000", "supports_credentials": True}})
 app.config['CORS_HEADERS'] = 'Content-Type'
 
 load_dotenv()
@@ -28,7 +28,7 @@ TOTAL_REPAIR_TIME = os.environ.get('TOTAL_REPAIR_TIME', 10)
 
 
 @api_bp.route('/discover', methods=['OPTIONS', 'POST'])
-@cross_origin(origin='http://localhost:9876', supports_credentials=True)
+@cross_origin(origin='http://localhost:3000', supports_credentials=True)
 def discover():
     if request.method == 'OPTIONS':
         return make_response(jsonify({}), 200)
@@ -84,7 +84,7 @@ def generate_and_save_sample_queries(table_queries, dialect, schema_dict, docsea
 
 
 @api_bp.route('/autocomplete', methods=['OPTIONS', 'POST'])
-@cross_origin(origin='http://localhost:9876', supports_credentials=True)
+@cross_origin(origin='http://localhost:3000', supports_credentials=True)
 def autocomplete():
     if request.method == 'OPTIONS':
         return make_response(jsonify({}), 200)
@@ -113,7 +113,7 @@ def autocomplete():
 
 
 @api_bp.route('/repair', methods=['OPTIONS', 'POST'])
-@cross_origin(origin='http://localhost:9876', supports_credentials=True)
+@cross_origin(origin='http://localhost:3000', supports_credentials=True)
 def repair():
     if request.method == 'OPTIONS':
         return make_response(jsonify({}), 200)
@@ -144,7 +144,7 @@ def repair():
 
 
 @api_bp.route('/add', methods=['OPTIONS', 'POST'])
-@cross_origin(origin='http://localhost:9876', supports_credentials=True)
+@cross_origin(origin='http://localhost:3000', supports_credentials=True)
 def add():
     if request.method == 'OPTIONS':
         return make_response(jsonify({}), 200)
