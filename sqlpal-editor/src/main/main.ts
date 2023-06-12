@@ -51,8 +51,7 @@ app
     ipcMain.handle('auth:get-access-token', authService.getAccessToken);
     ipcMain.on('auth:log-out', () => {
       BrowserWindow.getAllWindows().forEach((window) => window.close());
-      createLogoutWindow();
-      createWindow();
+      createLogoutWindow(createWindow);
     });
     createWindow();
     app.on('activate', () => {
