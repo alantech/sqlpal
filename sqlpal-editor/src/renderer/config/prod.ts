@@ -1,5 +1,3 @@
-// import posthog from 'posthog-js';
-
 import { ConfigInterface } from './config';
 
 const prod: ConfigInterface = !!global.window ? {
@@ -18,16 +16,6 @@ const prod: ConfigInterface = !!global.window ? {
   // },
   // logdna: {
   //   key: 'b98181227b606d8ee6c5674b5bb948e7',
-  // },
-  // auth: {
-  //   domain: 'sqlpal.us.auth0.com',
-  //   clientId: 'gFqVK6oPKmfGrir2j3YbLMHiROSgkSuV',
-  //   authorizationParams: {
-  //     redirect_uri: 'http://localhost/callback',
-  //     scope: 'read:current_user',
-  //     audience: 'https://api.sqlpal.ai',
-  //   },
-  //   useRefreshTokens: true,
   // },
   } : ({} as ConfigInterface);
 
