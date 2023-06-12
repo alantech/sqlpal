@@ -5,7 +5,11 @@ import { Schema } from './util';
 const functionRegex = /^\s*\w+\s*\(/;
 const argumentRegex = /^\s*(\w+)\s*\((.*)\)/g;
 
-async function validate(content: string, schema: Schema, dialect: keyof typeof SQLDialect) {
+async function validate(
+  content: string,
+  schema: Schema,
+  dialect: keyof typeof SQLDialect
+) {
   console.log('Handling request', {
     app: 'parse',
     meta: {
@@ -18,9 +22,15 @@ async function validate(content: string, schema: Schema, dialect: keyof typeof S
   let validationErr: string;
   try {
     const extractedDialect = extractDialect(dialect, false);
-    const surveyor = new SQLSurveyor(SQLDialect[extractedDialect] ?? SQLDialect.PLpgSQL);
+    const surveyor = new SQLSurveyor(
+      SQLDialect[extractedDialect] ?? SQLDialect.PLpgSQL
+    );
     const parsedSql = surveyor.survey(content);
-    if (parsedSql && parsedSql.parsedQueries && Object.keys(parsedSql.parsedQueries).length > 0) {
+    if (
+      parsedSql &&
+      parsedSql.parsedQueries &&
+      Object.keys(parsedSql.parsedQueries).length > 0
+    ) {
       // Make sure that all tableNames and columnNames in body.schema are lowercase
       const normalizedSchema: Schema = normalizeSchema(schema);
       validationErr = validateParsedSql(parsedSql, normalizedSchema);
@@ -58,7 +68,10 @@ function normalizeSchema(schema: Schema): Schema {
   return normalizedSchema;
 }
 
-function extractDialect(dialect: string, fromServer = false): keyof typeof SQLDialect {
+function extractDialect(
+  dialect: string,
+  fromServer = false
+): keyof typeof SQLDialect {
   if (fromServer) {
     // Python sql alchemy dialects are: 'postgresql', 'mysql', 'oracle', 'mssql'
     switch (dialect) {
@@ -88,7 +101,10 @@ function validateParsedSql(parsedSql: ParsedSql, schema: Schema): string {
   return errs.join('\n');
 }
 
-function validateParsedQuery(parsedQuery: ParsedQuery, schema: Schema): string[] {
+function validateParsedQuery(
+  parsedQuery: ParsedQuery,
+  schema: Schema
+): string[] {
   let errs: string[] = [];
   // Check if parsing errors exist
   const queryErrors = extractQueryErrors(parsedQuery);
@@ -98,12 +114,17 @@ function validateParsedQuery(parsedQuery: ParsedQuery, schema: Schema): string[]
   const outputColumnErrors = validateOutputColumns(parsedQuery, schema);
   // Check if referenced columns are part of the schema and table
   const referencedColumnErrors = validateReferencedColumns(parsedQuery, schema);
-  return errs.concat(queryErrors, tableErrors, outputColumnErrors, referencedColumnErrors);
+  return errs.concat(
+    queryErrors,
+    tableErrors,
+    outputColumnErrors,
+    referencedColumnErrors
+  );
 }
 
 function extractQueryErrors(parsedQuery: ParsedQuery): string[] {
   let errs: string[] = [];
-  parsedQuery.queryErrors?.forEach(e => {
+  parsedQuery.queryErrors?.forEach((e) => {
     // TODO: Improve error messaging giving meaningful error messages for each error type
     errs.push(`Error near ${e.token.value}. ${e.type}`);
   });
@@ -121,13 +142,16 @@ function validateTables(parsedQuery: ParsedQuery, schema: Schema): string[] {
   return errs;
 }
 
-function validateOutputColumns(parsedQuery: ParsedQuery, schema: Schema): string[] {
+function validateOutputColumns(
+  parsedQuery: ParsedQuery,
+  schema: Schema
+): string[] {
   let errs: string[] = [];
   const tables = Object.keys(parsedQuery.referencedTables);
   const parsedOutputColumns = parsedQuery.outputColumns;
   const identifiers = Object.values(parsedQuery.tokens)
-    .filter(t => t.type === 'IDENTIFIER')
-    .map(t => t.value);
+    .filter((t) => t.type === 'IDENTIFIER')
+    .map((t) => t.value);
   for (const parsedOutputColumn of Object.values(parsedOutputColumns)) {
     let columnNames: string[] = [];
     const colTableName = tables.includes(parsedOutputColumn.tableName)
@@ -139,12 +163,12 @@ function validateOutputColumns(parsedQuery: ParsedQuery, schema: Schema): string
       columnNames.push(...(extractArguments(columnValue) ?? []));
     } else columnNames.push(columnValue);
     // Keep only with `IDENTIFIERS`, removing literals, keywords, etc.
-    columnNames = columnNames.filter(cn => identifiers.includes(cn));
+    columnNames = columnNames.filter((cn) => identifiers.includes(cn));
     // Remove table name and alias from column name
-    columnNames = columnNames.map(cn => {
+    columnNames = columnNames.map((cn) => {
       return cn
         .split('.')
-        .filter(c => c !== colTableName && c !== colTableAlias)
+        .filter((c) => c !== colTableName && c !== colTableAlias)
         .join('.');
     });
     // Check errors for each column name
@@ -152,22 +176,38 @@ function validateOutputColumns(parsedQuery: ParsedQuery, schema: Schema): string
       if (
         columnName &&
         !columnName.includes('*') &&
-        !tables.some(t => schema[t.toLowerCase()]?.[columnName.toLowerCase()])
+        !tables.some((t) => schema[t.toLowerCase()]?.[columnName.toLowerCase()])
       ) {
-        errs.push(`Column "${columnName}" does not exist in tables "${tables.join(', ')}"`);
+        errs.push(
+          `Column "${columnName}" does not exist in tables "${tables.join(
+            ', '
+          )}"`
+        );
       }
     }
   }
   return errs;
 }
 
-function validateReferencedColumns(parsedQuery: ParsedQuery, schema: Schema): string[] {
+function validateReferencedColumns(
+  parsedQuery: ParsedQuery,
+  schema: Schema
+): string[] {
   let errs: string[] = [];
   const tables = Object.keys(parsedQuery.referencedTables);
   const columns = parsedQuery.referencedColumns;
   for (const column of Object.values(columns)) {
-    if (column.columnName && !tables.some(t => schema[t.toLowerCase()]?.[column.columnName.toLowerCase()])) {
-      errs.push(`Column "${column.columnName}" does not exist in tables "${tables.join(', ')}"`);
+    if (
+      column.columnName &&
+      !tables.some(
+        (t) => schema[t.toLowerCase()]?.[column.columnName.toLowerCase()]
+      )
+    ) {
+      errs.push(
+        `Column "${column.columnName}" does not exist in tables "${tables.join(
+          ', '
+        )}"`
+      );
     }
   }
   return errs;

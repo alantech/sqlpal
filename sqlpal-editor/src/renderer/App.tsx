@@ -6,10 +6,10 @@ import {
   useAppConfigContext,
 } from './components/providers/ConfigProvider';
 import { useEffect, useState } from 'react';
-import logdna from '@logdna/browser';
+// import logdna from '@logdna/browser';
 
 import * as Posthog from './services/posthog';
-import * as Sentry from './services/sentry';
+// import * as Sentry from './services/sentry';
 import { AppProvider } from './components/providers/AppProvider';
 import Main from './components/Main';
 import { ErrorDialog } from './components/common';
@@ -31,7 +31,7 @@ function handleRageClicking(setIsRageClicking: (arg0: boolean) => void) {
 }
 
 function Home() {
-  const { config, configError, telemetry, sqlpalEnv } = useAppConfigContext();
+  const { config, configError, telemetry } = useAppConfigContext();
   const [isRageClicking, setIsRageClicking] = useState(false);
 
   useEffect(() => {

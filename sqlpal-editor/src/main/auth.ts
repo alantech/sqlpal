@@ -1,4 +1,4 @@
-import { BrowserWindow, session } from 'electron';
+import { BrowserWindow } from 'electron';
 import authService from './auth-service';
 import { createAppWindow } from './app';
 
@@ -6,12 +6,6 @@ let win: BrowserWindow | null = null;
 
 async function createAuthWindow() {
   destroyAuthWin();
-
-  session.defaultSession.setPermissionRequestHandler(
-    (webContents, permission, callback) => {
-      callback(true);
-    }
-  );
 
   // Create the browser window.
   win = new BrowserWindow({
@@ -22,8 +16,6 @@ async function createAuthWindow() {
     },
   });
 
-  win.webContents.openDevTools({ mode: 'detach' });
-  console.log('url', authService.getAuthenticationURL());
   win.loadURL(authService.getAuthenticationURL());
 
   const {
@@ -31,38 +23,14 @@ async function createAuthWindow() {
   } = win.webContents;
 
   const filter = {
-    urls: [
-      'http://localhost/callback*',
-      // 'file:///callback*',
-    ],
+    urls: ['http://localhost/callback*'],
   };
 
-  win.webContents.session.setPermissionRequestHandler(
-    (webContents, permission, callback) => {
-      console.log(webContents.getURL());
-      console.log(webContents.id);
-      console.log(webContents.openDevTools({ mode: 'detach' }));
-      console.log(permission);
-      // if (permission === 'openExternal') {
-      //   return callback(true) // denied.
-      // }
-      callback(true);
-    }
-  );
-
-  // session.defaultSession.webRequest.onBeforeRequest(filter,(details, callback) => {
-  //   console.log(details.url)
-  // });
-
   webRequest?.onBeforeRequest(filter, async ({ url }) => {
-    console.log('trying here to load tokens?');
-    console.log(url);
     await authService.loadTokens(url);
     createAppWindow();
     return destroyAuthWin();
   });
-
-  console.log('all defined');
 
   (win as any).on('authenticated', () => {
     destroyAuthWin();

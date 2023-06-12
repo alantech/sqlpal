@@ -82,7 +82,6 @@ export async function post(
   signal?: AbortSignal,
 ): Promise<Response> {
   try {
-    console.log(`post: ${backendUrl}/${endpoint}`)
     const resp = await fetch(`${backendUrl}/${endpoint}`, {
       method: 'POST',
       signal,

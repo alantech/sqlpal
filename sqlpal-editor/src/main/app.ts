@@ -35,7 +35,6 @@ const installExtensions = async () => {
     .catch(console.log);
 };
 
-
 export const createAppWindow = async () => {
   if (isDebug) {
     await installExtensions();

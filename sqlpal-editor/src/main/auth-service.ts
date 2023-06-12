@@ -49,12 +49,6 @@ function base64URLEncode(buffer: Buffer) {
     .replace(/=/g, '');
 }
 
-// // Dependency: Node.js crypto module
-// // https://nodejs.org/api/crypto.html#crypto_crypto
-// function sha256(buffer: Buffer): Buffer {
-//   return createHash('sha256').update(buffer).digest();
-// }
-
 function getAuthenticationURL() {
   return (
     'https://' +
@@ -95,24 +89,13 @@ async function loadTokens(callbackURL: string) {
     code: query.code,
     redirect_uri: redirectUri,
   };
-  let res: any;
-  try {
-    res = await post(`https://${domain}`, 'oauth/token', exchangeOptions);
-  } catch (err) {
-    throw err;
-  }
-  try {
-    const body = await res.json();
-    accessToken = body.access_token;
-    profile = jwtDecode(body.id_token);
-    refreshToken = body.refresh_token;
-    if (refreshToken) {
-      await keytar.setPassword(keytarService, keytarAccount, refreshToken);
-    }
-  } catch (err) {
-    console.log(`erroor on body`);
-    console.log(err);
-    throw err;
+  const res = await post(`https://${domain}`, 'oauth/token', exchangeOptions);
+  const body = await res.json();
+  accessToken = body.access_token;
+  profile = jwtDecode(body.id_token);
+  refreshToken = body.refresh_token;
+  if (refreshToken) {
+    await keytar.setPassword(keytarService, keytarAccount, refreshToken);
   }
 }
 
