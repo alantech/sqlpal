@@ -26,7 +26,6 @@ async function createWindow() {
     await authService.refreshTokens();
     mainWindow = await createAppWindow();
   } catch (err) {
-    console.log('err', err);
     await createAuthWindow();
   }
 }

@@ -48,7 +48,6 @@ export function resolveHtmlPath(htmlFileName: string) {
 }
 
 async function maybeHandleFetchError(response: Response): Promise<void> {
-  console.log('maybeHandleFetchError', response)
   // TODO: What type here?
   if (!response.ok) {
     let message;
