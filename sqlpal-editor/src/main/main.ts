@@ -13,6 +13,7 @@ import { BrowserWindow, app, ipcMain } from 'electron';
 import authService from './auth-service';
 import { createAppWindow } from './app';
 import { createAuthWindow, createLogoutWindow } from './auth';
+import config from './config';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -23,10 +24,14 @@ if (process.env.NODE_ENV === 'production') {
 
 async function createWindow() {
   try {
-    await authService.refreshTokens();
+    if (config?.auth) {
+      await authService.refreshTokens();
+    }
     mainWindow = await createAppWindow();
   } catch (err) {
-    await createAuthWindow();
+    if (config?.auth) {
+      await createAuthWindow();
+    }
   }
 }
 

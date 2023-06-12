@@ -3,8 +3,7 @@ import { ConfigInterface } from './config';
 const prod: ConfigInterface = !!global.window ? {
   name: 'prod',
   server: {
-    // url: 'https://api.sqlpal.ai',
-    url: 'http://localhost:8088',
+    url: 'https://api.sqlpal.ai',
   },
   posthog: {
     key: 'phc_8AIyTQ8yfM5hEeUEv4gMmIqIHq0KJ3q6nszlZKTmnDw',
