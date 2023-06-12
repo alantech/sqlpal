@@ -7,4 +7,4 @@ const config: { [key in ConfigEnvironments]: ConfigInterface } = {
   local,
 };
 
-export default config;
+export default config[process.env.NODE_ENV === 'production' ? 'prod' : 'local'];

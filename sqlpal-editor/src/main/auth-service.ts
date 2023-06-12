@@ -7,11 +7,9 @@ import { randomBytes } from 'crypto';
 import config from './config';
 
 const verifier = base64URLEncode(randomBytes(32));
-const environment =
-  process.env.NODE_ENV === 'production' ? 'prod' : 'local' || 'local';
 const keytarService = 'sqlpal';
 const keytarAccount = os.userInfo().username;
-const { domain, clientId } = config[environment]?.auth ?? {
+const { domain, clientId } = config?.auth ?? {
   domain: '',
   clientId: '',
 };
@@ -20,7 +18,7 @@ const {
   redirect_uri: redirectUri,
   response_type: responseType,
   scope,
-} = config[environment]?.auth?.authorizationParams ?? {
+} = config?.auth?.authorizationParams ?? {
   audience: '',
   redirect_uri: '',
   response_type: '',
