@@ -27,7 +27,9 @@ export default function Connect() {
     },
   ];
 
-  const [connString, SetConnString] = useState('postgresql://sqlpaluser:sqlpass@localhost:5432/sqlpal');
+  const [connString, SetConnString] = useState(
+    'postgresql://sqlpaluser:sqlpass@localhost:5432/sqlpal'
+  );
   const [isValidConnString, SetIsValidConnString] = useState(true);
   const [stack, setStack] = useState(['addconn']);
 
@@ -35,6 +37,18 @@ export default function Connect() {
   let backEnabled = false;
   let closeButtonEnabled = true;
   const current = stack[stack.length - 1];
+
+  const onFinish = () => {
+    dispatch({ action: ActionType.ShowConnect, data: { showConnect: false } });
+    dispatch({
+      action: ActionType.SetConnStr,
+      data: {
+        connString,
+        dialect: dialects.find((d) => d.protocol === connString.split(':')[0])
+          ?.key,
+      },
+    });
+  };
 
   // Check relevant state per step to determine automatic actions to perform, such as deciding if
   // the Next button should be enabled or not
@@ -51,9 +65,9 @@ export default function Connect() {
 
   return (
     <Wizard
-      icon={<LinkIcon className='h-6 w-6 text-primary' aria-hidden='true' />}
+      icon={<LinkIcon className="h-6 w-6 text-primary" aria-hidden="true" />}
       title={'Connect database'}
-      start='addconn'
+      start="addconn"
       stack={stack}
       setStack={setStack}
       nextEnabled={nextEnabled}
@@ -66,37 +80,30 @@ export default function Connect() {
       backEnabled={backEnabled}
       closeable={closeButtonEnabled}
       onClose={() => {
-        dispatch({ action: ActionType.ShowConnect, data: { showConnect: false } });
+        dispatch({
+          action: ActionType.ShowConnect,
+          data: { showConnect: false },
+        });
       }}
     >
-      <Step
-        id='addconn'
-        onFinish={() => {
-          dispatch({ action: ActionType.ShowConnect, data: { showConnect: false } });
-          dispatch({
-            action: ActionType.SetConnStr,
-            data: {
-              connString,
-              dialect: dialects.find(d => d.protocol === connString.split(':')[0])?.key,
-            },
-          });
-        }}
-      >
+      <Step id="addconn" onFinish={onFinish}>
         <Label>
           <b>Let&apos;s connect a database</b>
         </Label>
-        <form className='mb-10' noValidate>
+        <form className="mb-10" noValidate onSubmit={onFinish}>
           <VBox>
-            <Label htmlFor='conn-str'>Database URL</Label>
+            <Label htmlFor="conn-str">Database URL</Label>
             <Input
               required
-              type='text'
-              name='conn-str'
+              type="text"
+              name="conn-str"
               value={connString}
               setValue={SetConnString}
-              placeholder='[postgresql|mysql|mssql]://<your_user>:<your_password>@<your_host_ip>/<your_db>[?<param>=<value>&<param>=<value>...]'
-              validator={/(postgresql|mysql|mssql)(\:\/\/.+\:.+@.+\/[A-Za-z\d\-\_]+)/g}
-              validationErrorMessage='Please enter a valid database URL following the format: [postgresql|mysql|mssql]://<your_user>:<your_password>@<your_host_ip>/<your_db>[?<param>=<value>&<param>=<value>...]'
+              placeholder="[postgresql|mysql|mssql]://<your_user>:<your_password>@<your_host_ip>/<your_db>[?<param>=<value>&<param>=<value>...]"
+              validator={
+                /(postgresql|mysql|mssql)(\:\/\/.+\:.+@.+\/[A-Za-z\d\-\_]+)/g
+              }
+              validationErrorMessage="Please enter a valid database URL following the format: [postgresql|mysql|mssql]://<your_user>:<your_password>@<your_host_ip>/<your_db>[?<param>=<value>&<param>=<value>...]"
               setIsValid={SetIsValidConnString}
             />
           </VBox>
