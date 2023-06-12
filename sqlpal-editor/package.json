@@ -95,7 +95,6 @@
     }
   },
   "dependencies": {
-    "@auth0/auth0-react": "^2.0.0",
     "@headlessui/react": "^1.7.10",
     "@heroicons/react": "^2.0.18",
     "@logdna/browser": "^2.1.0",
