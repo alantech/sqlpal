@@ -1,0 +1,25 @@
+{
+  "name": "SQLPal",
+  "version": "0.0.1",
+  "description": "Advanced SQL editor",
+  "license": "AGPL-3.0-only",
+  "author": {
+    "name": "Alan Technologies, Inc. Maintainers",
+    "email": "hello@alantechnologies.com",
+    "url": "https://github.com/alantech"
+  },
+  "main": "./dist/main/main.js",
+  "scripts": {
+    "rebuild": "node -r ts-node/register ../../.erb/scripts/electron-rebuild.js",
+    "postinstall": "npm run rebuild && npm run link-modules",
+    "link-modules": "node -r ts-node/register ../../.erb/scripts/link-modules.ts"
+  },
+  "dependencies": {
+    "crypto": "^1.0.1",
+    "keytar": "^7.9.0",
+    "knex": "^2.4.2",
+    "mysql": "^2.18.1",
+    "pg": "^8.9.0",
+    "tedious": "^16.0.0"
+  }
+}

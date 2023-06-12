@@ -9,7 +9,7 @@ from .utils.embeddings import select_embeddings
 from .utils.autocomplete import autocomplete_query_suggestions, generate_queries_for_schema
 from .utils.indexes import select_index
 from .utils.repair import repair_query_suggestions
-from .utils import connect_to_db, explain_query, get_schema_dict
+from .utils import connect_to_db, explain_query
 from threading import Thread
 import logging
 
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 api_bp = Blueprint('api_bp', __name__)
 app = Flask(__name__)
 CORS(app, resources={
-     r"/*": {"origins": "http://localhost:9876", "supports_credentials": True}})
+     r"/*": {"origins": "http://localhost:3000", "supports_credentials": True}})
 app.config['CORS_HEADERS'] = 'Content-Type'
 
 load_dotenv()
@@ -28,12 +28,13 @@ TOTAL_REPAIR_TIME = os.environ.get('TOTAL_REPAIR_TIME', 10)
 
 
 @api_bp.route('/discover', methods=['OPTIONS', 'POST'])
-@cross_origin(origin='http://localhost:9876', supports_credentials=True)
+@cross_origin(origin='http://localhost:3000', supports_credentials=True)
 def discover():
     if request.method == 'OPTIONS':
         return make_response(jsonify({}), 200)
 
     db, error = connect_to_db(request)
+    dialect = request.json.get('dialect', 'postgresql')
     if error:
         return error
 
@@ -42,17 +43,16 @@ def discover():
     embeddings = select_embeddings()
     docsearch = index_engine.read_index(db, embeddings)
 
-    tables = db.get_usable_table_names()
     texts = []
     metadatas = []
     table_queries = {}
-    schema_dict = get_schema_dict(db)
-    for table in [t for t in tables if t not in 'index_content']:
-        info = db.get_table_info(table_names=[table])
-        info = info.replace('\t', ' ').replace('\n', ' ')
+    schema_dict = request.json.get('schema', None)
+    tables = schema_dict.keys()
+    table_info_dict = request.json.get('tables_info', None)
+    for table in tables:
+        info = table_info_dict[table].replace('\r', ' ').replace('\t', ' ').replace('\n', ' ') if table_info_dict else None
         texts.append(info)
         metadatas.append({'type': 'schema'})
-
         if os.environ.get('GET_SAMPLE_QUERIES', False):
             table_queries[table] = info
 
@@ -64,7 +64,7 @@ def discover():
     if os.environ.get('GET_SAMPLE_QUERIES', False):
         # run the generate_and_save_sample_queries in a new thread to not block the code execution
         thread = Thread(target=generate_and_save_sample_queries,
-                        args=(table_queries, db, schema_dict, docsearch))
+                        args=(table_queries, dialect, schema_dict, docsearch))
         thread.start()
 
     index_engine.write_index(db, docsearch)
@@ -73,10 +73,10 @@ def discover():
     return response
 
 
-def generate_and_save_sample_queries(table_queries, db, schema_dict, docsearch):
+def generate_and_save_sample_queries(table_queries, dialect, schema_dict, docsearch):
     logger.info('Started generating sample queries')
     for info in table_queries.values():
-        queries = generate_queries_for_schema(info, schema_dict, db.dialect)
+        queries = generate_queries_for_schema(info, schema_dict, dialect)
         if (queries and len(queries) > 0):
             for query in queries:
                 docsearch.add_texts([query], [{'type': 'query'}])
@@ -84,13 +84,13 @@ def generate_and_save_sample_queries(table_queries, db, schema_dict, docsearch):
 
 
 @api_bp.route('/autocomplete', methods=['OPTIONS', 'POST'])
-@cross_origin(origin='http://localhost:9876', supports_credentials=True)
+@cross_origin(origin='http://localhost:3000', supports_credentials=True)
 def autocomplete():
     if request.method == 'OPTIONS':
         return make_response(jsonify({}), 200)
 
-    st = time.time()
     db, error = connect_to_db(request)
+    dialect = request.json.get('dialect', 'postgresql')
     if error:
         return error
 
@@ -103,17 +103,7 @@ def autocomplete():
         if query:
             # execute query autocompletion
             result = autocomplete_query_suggestions(
-                query.strip(), docsearch, db.dialect)
-            et = time.time()
-            elapsed_time = (et - st)*1000
-            allowed_timeout = TOTAL_AUTOCOMPLETE_TIME*1000 - elapsed_time
-            if allowed_timeout > 0 and len(result) > 0:
-                # we can trigger the SQL explain, for just the total remainder time
-                valid = explain_query(db, result[0], allowed_timeout)
-                if not valid:
-                    # just return a blank query
-                    response = jsonify({'suggestions': []})
-                    return response
+                query.strip(), docsearch, dialect)
             response = jsonify({'suggestions': result})
             return response
         else:
@@ -123,13 +113,14 @@ def autocomplete():
 
 
 @api_bp.route('/repair', methods=['OPTIONS', 'POST'])
-@cross_origin(origin='http://localhost:9876', supports_credentials=True)
+@cross_origin(origin='http://localhost:3000', supports_credentials=True)
 def repair():
     if request.method == 'OPTIONS':
         return make_response(jsonify({}), 200)
 
-    st = time.time()
+    # st = time.time()
     db, error = connect_to_db(request)
+    dialect = request.json.get('dialect', 'postgresql')
     if error:
         return error
 
@@ -143,17 +134,7 @@ def repair():
         if query and error_message:
             # execute query repair
             result = repair_query_suggestions(
-                query.strip(), error_message.strip(), docsearch, db.dialect)
-            et = time.time()
-            elapsed_time = (et - st)*1000
-            allowed_timeout = TOTAL_AUTOCOMPLETE_TIME*1000 - elapsed_time
-            if allowed_timeout > 0 and len(result) > 0:
-                # we can trigger the SQL explain, for just the total remainder time
-                valid = explain_query(db, result[0], allowed_timeout)
-                if not valid:
-                    # just return a blank query
-                    response = jsonify({'suggestions': []})
-                    return response
+                query.strip(), error_message.strip(), docsearch, dialect)
             response = jsonify({'suggestions': result})
             return response
         else:
@@ -163,7 +144,7 @@ def repair():
 
 
 @api_bp.route('/add', methods=['OPTIONS', 'POST'])
-@cross_origin(origin='http://localhost:9876', supports_credentials=True)
+@cross_origin(origin='http://localhost:3000', supports_credentials=True)
 def add():
     if request.method == 'OPTIONS':
         return make_response(jsonify({}), 200)
