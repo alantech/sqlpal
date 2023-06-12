@@ -12,6 +12,10 @@ services:
     tmpfs:
       - /tmp/indexes
     container_name: sqlpal
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "2"
   sqlpal-db:
     # TODO: make this persistent
     container_name: sqlpal_db
@@ -26,6 +30,10 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "2"
   pg:
     # postgresql://sqlpaluser:sqlpass@local_pg:5432/sqlpal
     container_name: sqlpal_db_pg
@@ -39,6 +47,10 @@ services:
       POSTGRES_DB: sqlpal
     volumes:
       - ./sqlpal-server/fixtures/test_schema_pg.sql:/docker-entrypoint-initdb.d/init.sql
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "2"
   mysql:
     # mysql://sqlpaluser:sqlpass@local_mysql:3306/sqlpal
     container_name: sqlpal_db_mysql
@@ -54,6 +66,10 @@ services:
       MYSQL_DATABASE: "sqlpal"
     volumes:
       - ./sqlpal-server/fixtures/test_schema_mysql.sql:/docker-entrypoint-initdb.d/init.sql
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "2"
   mssql:
     # mssql://sqlpaluser:sqlpass@local_mssql:1433/sqlpal?TrustServerCertificate=yes
     container_name: sqlpal_db_mssql
@@ -71,6 +87,10 @@ services:
       retries: 10
       start_period: 10s
       timeout: 3s
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "2"
   mssql.configurator:
     image: mcr.microsoft.com/mssql/server:2019-latest
     depends_on:
@@ -83,3 +103,7 @@ services:
       '
     volumes:
       - ./sqlpal-server/fixtures/test_schema_mssql.sql:/docker-entrypoint-initdb.d/init.sql
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "2"
