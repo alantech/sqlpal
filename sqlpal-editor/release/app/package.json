@@ -15,7 +15,6 @@
     "link-modules": "node -r ts-node/register ../../.erb/scripts/link-modules.ts"
   },
   "dependencies": {
-    "crypto": "^1.0.1",
     "keytar": "^7.9.0",
     "knex": "^2.4.2",
     "mysql": "^2.18.1",
