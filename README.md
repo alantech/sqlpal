@@ -1,12 +1,12 @@
 <div style="text-align:center"><img src="editor/assets/icons/64x64.png" /></div>
 
-# SQLPAL
+# SQLPal
 
 SQLPal is an open-source SQL editor designed to save you time when writing SQL for complex or unfamiliar schemas by using OpenAI's LLMs. It is composed of an `editor` web app in React that runs in a desktop app via Electron and communicates via a Flask `server` that actually computes the suggestions using `FAISS` and OpenAI models.
 
 It will guide and help you when writing SQL, from performing suggestions and highlighting and suggesting corrections for bad syntax. All of that taking into account the connected database schema.
 
-## ⚡️ Try out SQLPAL
+## ⚡️ Try out SQLPal
 
 If you want to start using it, is as simple as cloning the repository, and executing:
 

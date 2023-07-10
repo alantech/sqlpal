@@ -27,10 +27,10 @@ const AppConfigProvider = ({ children }: { children: any }) => {
       const configJson = window?.electron?.config?.get();
       if (!Object.keys(appConfig).length && Object.keys(configJson ?? {}).length) {
         const initialAppConfig: AppConfig = {} as AppConfig;
-        if (!configJson.sqlpalEnv) throwError('No SQLPAL ENV provided');
+        if (!configJson.sqlpalEnv) throwError('No SQLPal ENV provided');
         initialAppConfig.sqlpalEnv = configJson.sqlpalEnv as ConfigEnvironments;
         const envConfig = config[configJson?.sqlpalEnv as ConfigEnvironments];
-        if (!envConfig) throwError('Invalid SQLPAL ENV provided');
+        if (!envConfig) throwError('Invalid SQLPal ENV provided');
         initialAppConfig.config = envConfig;
         initialAppConfig.telemetry = configJson.telemetry as 'on' | 'off';
         setAppConfig(initialAppConfig);
