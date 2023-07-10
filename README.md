@@ -20,7 +20,7 @@ It will start a `docker-compose` deployment, with the LLM engine on one side, an
 To start the SQLPal desktop app:
 
 ```sh
-cd sqlpal-editor
+cd editor
 npm start
 ```
 
