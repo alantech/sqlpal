@@ -21,6 +21,7 @@ To start the SQLPal desktop app:
 
 ```sh
 cd editor
+npm install
 npm start
 ```
 

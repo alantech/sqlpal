@@ -45,7 +45,7 @@ services:
       POSTGRES_PASSWORD: sqlpass
       POSTGRES_DB: sqlpal
     volumes:
-      - ./sqlpal-server/fixtures/test_schema_pg.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./server/fixtures/test_schema_pg.sql:/docker-entrypoint-initdb.d/init.sql
     logging:
       options:
         max-size: "10m"
@@ -64,7 +64,7 @@ services:
       MYSQL_PASSWORD: "sqlpass"
       MYSQL_DATABASE: "sqlpal"
     volumes:
-      - ./sqlpal-server/fixtures/test_schema_mysql.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./server/fixtures/test_schema_mysql.sql:/docker-entrypoint-initdb.d/init.sql
     logging:
       options:
         max-size: "10m"
@@ -101,7 +101,7 @@ services:
       echo "All done!";
       '
     volumes:
-      - ./sqlpal-server/fixtures/test_schema_mssql.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./server/fixtures/test_schema_mssql.sql:/docker-entrypoint-initdb.d/init.sql
     logging:
       options:
         max-size: "10m"
