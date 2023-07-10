@@ -35,15 +35,15 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 # copy the requirements file into the image
-WORKDIR /sqlpal-server
+WORKDIR /server
 RUN python3 -m venv ./venv
-COPY sqlpal-server/requirements.txt ./
+COPY server/requirements.txt ./
 RUN . ./venv/bin/activate && pip install wheel && pip install --no-compile --disable-pip-version-check -r requirements.txt
 
 # copy every content from the local file to the image
-COPY sqlpal-server/run.py ./
-COPY sqlpal-server/config.py ./
-COPY sqlpal-server/app app
+COPY server/run.py ./
+COPY server/config.py ./
+COPY server/app app
 
 #####################################################################################################################################################
 
@@ -51,20 +51,16 @@ COPY sqlpal-server/app app
 FROM base AS main-stage
 
 ## Copy from sqlpal-stage
-WORKDIR /sqlpal-server
-COPY --from=sqlpal-stage /sqlpal-server/requirements.txt ./
-COPY --from=sqlpal-stage /sqlpal-server/app ./app
-COPY --from=sqlpal-stage /sqlpal-server/run.py ./
-COPY --from=sqlpal-stage /sqlpal-server/config.py ./
-COPY --from=sqlpal-stage /sqlpal-server/venv ./venv
+WORKDIR /server
+COPY --from=sqlpal-stage /server/requirements.txt ./
+COPY --from=sqlpal-stage /server/app ./app
+COPY --from=sqlpal-stage /server/run.py ./
+COPY --from=sqlpal-stage /server/config.py ./
+COPY --from=sqlpal-stage /server/venv ./venv
 
 WORKDIR /
 
 ## Default ENVs that can be overwritten
-ARG IASQL_ENV=local
-ENV IASQL_ENV=$IASQL_ENV
-ARG IASQL_TELEMETRY=on
-ENV IASQL_TELEMETRY=$IASQL_TELEMETRY
 ARG DB_USER=postgres
 ENV DB_USER=$DB_USER
 ARG DB_PASSWORD=test
