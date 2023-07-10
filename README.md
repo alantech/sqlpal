@@ -1,6 +1,4 @@
-<p align="center">
-  ![image](editor/assets/icons/128x128.png)
-</p>
+<div style="text-align:center"><img src="editor/assets/icons/64x64.png" /></div>
 
 # SQLPAL
 
