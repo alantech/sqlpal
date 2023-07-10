@@ -10,4 +10,4 @@ Out of respect to you, as well, our code of conduct is brief and (we hope) clear
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting the project team at hello@iasql.com. It is at the discretion of the the project team on how to enforce this code of conduct. People make mistakes or could learn and become better people with proper guidance, so we will tend to delete the offensive content and reach out to first-time offenders. Repeat offenders may be banned from participating.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting the project team at hello@alantechnologies.com. It is at the discretion of the the project team on how to enforce this code of conduct. People make mistakes or could learn and become better people with proper guidance, so we will tend to delete the offensive content and reach out to first-time offenders. Repeat offenders may be banned from participating.
