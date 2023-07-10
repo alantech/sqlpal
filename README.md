@@ -33,8 +33,8 @@ The LLM engine allows multiple configuration parameters, that need to be provide
 The following options are possible:
 
 - OPENAI_API_KEY - key to consume OpenAI API.
-- AUTOCOMPLETE_METHOD - Method to interact with API. `chat` | `openai` | `selfhosted`. Default: `chat`.
-- LLM_MODEL - Model used for autocompletion when interacting with OpenAI (`chat` or `openai`). https://platform.openai.com/docs/models.
+- AUTOCOMPLETE_METHOD - Method to interact with API. `chat` | `selfhosted`. Default: `chat`.
+- LLM_MODEL - Model used for autocompletion when interacting with OpenAI. https://platform.openai.com/docs/models.
 - AUTOCOMPLETE_PROMPT - custom prompt to pass to the system to generate the autocomplete.
 - INDEX_FOLDER - path where to store the local persisted indexes. It is currently setup to a tmpfs volume, but could be modified to be persisting.
 - INDEX_ENGINE - `FAISS`. `chroma` could be used but need to be added to the `requirements.txt`.
@@ -43,9 +43,9 @@ The following options are possible:
 - POSTGRES_PASSWORD - pg password of the database storing the indices.
 - POSTGRES_DB - pg name of the database storing the indices.
 - GET_SAMPLE_QUERIES - whether to generate a set of sample queries based on the schema of the database. This would help finding suggestions.
-- QUERIES_METHOD - method used to generate the sample queries.
+- QUERIES_METHOD - method used to generate the sample queries. `chat` | `selfhosted`. Default: `chat`.
 - LLM_QUERIES_MODEL - model used to generate sample queries based on the schema.
-- REPAIR_METHOD - method used to generate suggestions to correct queries.
+- REPAIR_METHOD - method used to generate suggestions to correct queries. `chat` | `selfhosted`. Default: `chat`.
 - REPAIR_MODEL - model used to generate suggestions to correct queries.
 - TEMPERATURE - the temperature for getting the autocomplete.
 - OPENAI_NUM_ANSWERS - the number of different answers that the system should suggest.

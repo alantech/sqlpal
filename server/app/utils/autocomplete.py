@@ -101,15 +101,6 @@ def autocomplete_chat(query, docsearch, dialect):
     final_queries = extract_queries_from_result(res)
     return final_queries
 
-
-def autocomplete_openai(query, docsearch, dialect):
-    llm = OpenAI(temperature=os.environ.get('TEMPERATURE', 0.9),
-                 model_name=os.environ.get('LLM_MODEL', 'text-davinci-002'), n=int(os.environ.get('OPENAI_NUM_ANSWERS', 1)))
-    res = predict(llm, query, docsearch, dialect)
-    final_queries = extract_queries_from_result(res)
-    return final_queries
-
-
 def autocomplete_selfhosted(query, docsearch, dialect):
     # different search types
     if (os.environ.get('SEARCH_TYPE', 'similarity') == 'mmr'):
@@ -162,8 +153,6 @@ def autocomplete_selfhosted(query, docsearch, dialect):
 def autocomplete_query_suggestions(query, docsearch, dialect):
     if os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'chat':
         queries = autocomplete_chat(query, docsearch, dialect)
-    elif os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'openai':
-        queries = autocomplete_openai(query, docsearch, dialect)
     elif os.environ.get('AUTOCOMPLETE_METHOD', 'chat') == 'selfhosted':
         queries = autocomplete_selfhosted(query, docsearch, dialect)
     else:
@@ -186,18 +175,6 @@ def predict_queries(llm, schema, dialect):
 def queries_chat(schema, dialect):
     llm = ChatOpenAI(temperature=os.environ.get('TEMPERATURE', 0.9),
                      model_name=os.environ.get('LLM_QUERIES_MODEL', 'gpt-3.5-turbo'), n=1)
-    res = predict_queries(llm, schema, dialect)
-
-    try:
-        final_queries = json.loads(res)
-    except:
-        return []
-    return final_queries
-
-
-def queries_openai(schema, dialect):
-    llm = OpenAI(temperature=os.environ.get('TEMPERATURE', 0.9),
-                 model_name=os.environ.get('LLM_QUERIES_MODEL', 'text-davinci-002'), n=1)
     res = predict_queries(llm, schema, dialect)
 
     try:
@@ -255,8 +232,6 @@ def generate_queries_for_schema(schema, schema_dict, dialect):
     logger.info("Generating queries for schema: "+schema)
     if os.environ.get('QUERIES_METHOD', 'chat') == 'chat':
         queries = queries_chat(schema, dialect)
-    elif os.environ.get('QUERIES_METHOD', 'chat') == 'openai':
-        queries = queries_openai(schema, dialect)
     elif os.environ.get('QUERIES_METHOD', 'chat') == 'selfhosted':
         queries = queries_selfhosted(schema, dialect)
     else:
