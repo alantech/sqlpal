@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="editor/assets/icons/96x96.png" />
+  <img src="editor/assets/icons/128x128.png" />
 </p>
 
 # SQLPal
