@@ -66,15 +66,6 @@ def repair_chat(query, error_message, docsearch, dialect):
     final_queries = extract_queries_from_result(res)
     return final_queries
 
-
-def repair_openai(query, error_message, docsearch, dialect):
-    llm = OpenAI(temperature=os.environ.get('TEMPERATURE', 0.9),
-                 model_name=os.environ.get('REPAIR_MODEL', 'text-davinci-002'), n=int(os.environ.get('OPENAI_NUM_ANSWERS', 1)))
-    res = predict_repair(llm, query, error_message, docsearch, dialect)
-    final_queries = extract_queries_from_result(res)
-    return final_queries
-
-
 def repair_selfhosted(query, error_message, docsearch, dialect):
     # different search types
     if (os.environ.get('SEARCH_TYPE', 'similarity') == 'mmr'):
@@ -126,8 +117,6 @@ def repair_selfhosted(query, error_message, docsearch, dialect):
 def repair_query_suggestions(query, error_message, docsearch, dialect):
     if os.environ.get('REPAIR_METHOD', 'chat') == 'chat':
         queries = repair_chat(query, error_message, docsearch, dialect)
-    elif os.environ.get('REPAIR_METHOD', 'chat') == 'openai':
-        queries = repair_openai(query, error_message, docsearch, dialect)
     elif os.environ.get('REPAIR_METHOD', 'chat') == 'selfhosted':
         queries = repair_selfhosted(query, error_message, docsearch, dialect)
     else:
