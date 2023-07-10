@@ -1,4 +1,6 @@
-<div style="text-align:center"><img src="editor/assets/icons/64x64.png" /></div>
+<p align="center">
+  <img src="editor/assets/icons/96x96.png" />
+</p>
 
 # SQLPal
 
