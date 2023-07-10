@@ -61,10 +61,6 @@ COPY --from=sqlpal-stage /sqlpal-server/venv ./venv
 WORKDIR /
 
 ## Default ENVs that can be overwritten
-ARG IASQL_ENV=local
-ENV IASQL_ENV=$IASQL_ENV
-ARG IASQL_TELEMETRY=on
-ENV IASQL_TELEMETRY=$IASQL_TELEMETRY
 ARG DB_USER=postgres
 ENV DB_USER=$DB_USER
 ARG DB_PASSWORD=test
