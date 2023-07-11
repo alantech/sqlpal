@@ -2,13 +2,15 @@
   <img src="editor/assets/icons/128x128.png" />
 </p>
 
-# SQLPal
+# SQL Pal
 
-SQLPal is an open-source SQL editor designed to save you time when writing SQL for complex or unfamiliar schemas by using OpenAI's LLMs. It is composed of an `editor` web app in React that runs in a desktop app via Electron and communicates via a Flask `server` that actually computes the suggestions using `FAISS` and OpenAI models.
+SQL Pal is an open-source SQL editor designed to save you time when writing SQL for complex or unfamiliar schemas by using OpenAI's LLMs. It is composed of an `editor` web app in React that runs in a desktop app via Electron and communicates via a Flask `server` that computes the suggestions using `FAISS` and OpenAI models.
 
-It will guide and help you when writing SQL, from performing suggestions and highlighting and suggesting corrections for bad syntax. All of that taking into account the connected database schema.
+SQL Pal will provide autocompletion + syntax check and repair based on the schema of the database it is connected to. It supports PostgreSQL, MySQL, and MSSQL.
 
-## ⚡️ Try out SQLPal
+## ⚡️ Try out SQL Pal
+
+<img src="demo.gif" />
 
 If you want to start using it, is as simple as cloning the repository, and executing:
 
@@ -21,7 +23,7 @@ It will start a `docker-compose` deployment, with the LLM engine on one side, an
 
 > Note: Make sure to create a `.env` file following the `.env.sample`
 
-To start the SQLPal desktop app:
+To start the SQL Pal desktop app:
 
 ```sh
 cd editor
