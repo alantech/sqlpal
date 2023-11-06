@@ -2,7 +2,7 @@
   "name": "sqlpal",
   "version": "0.1.1",
   "description": "Advanced SQL editor",
-  "license": "AGPL-3.0-only",
+  "license": "MIT",
   "main": "dist/index.js",
   "scripts": {
     "docker-build": "DOCKER_BUILDKIT=1 docker build -t sqlpal:latest .",

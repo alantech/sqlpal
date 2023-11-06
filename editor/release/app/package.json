@@ -2,7 +2,7 @@
   "name": "SQLPal",
   "version": "0.0.1",
   "description": "Advanced SQL editor",
-  "license": "AGPL-3.0-only",
+  "license": "MIT",
   "author": {
     "name": "Alan Technologies, Inc. Maintainers",
     "email": "hello@alantechnologies.com",

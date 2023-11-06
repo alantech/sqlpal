@@ -17,7 +17,7 @@ setup(
         'Development Status :: 3 - Alpha',
         'Environment :: Web Environment',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: GNU Affero General Public License v3',
+        'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3',
         'Topic :: Internet :: WWW/HTTP :: WSGI :: Application',
     ],    
